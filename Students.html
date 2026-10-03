@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registered Students</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal: #336e7b;
+      --label: #7f8c88;
+      --border: #bccbc6;
+      --placeholder: #b5c7c0;
+      --soft: #f3f6f5;
+      --alert: #b3261e;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "DM Sans", Arial, sans-serif; background: #fff; color: #222; }
+    header { background: var(--teal); padding: 24px 20px; }
+    header h1 { margin: 0; color: #000; font-size: 36px; font-weight: 700; }
+    main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 48px; }
+
+    label { display: block; color: var(--label); font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+    input, select {
+      height: 46px; padding: 0 14px; font-family: inherit; font-size: 16px; color: #333;
+      border: 2px solid var(--border); background: #fff; outline: none;
+    }
+    input::placeholder { color: var(--placeholder); }
+    input:focus, select:focus { border-color: #000; }
+    button {
+      background: var(--teal); color: #fff; border: none; border-radius: 6px;
+      padding: 0 22px; height: 46px; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    button:hover { background: #285a65; }
+    button.secondary { background: #fff; color: var(--teal); border: 2px solid var(--teal); }
+
+    /* Login */
+    #login { max-width: 380px; margin: 40px auto; }
+    #login input { width: 100%; margin-bottom: 14px; }
+    #login button { width: 100%; }
+    .error { color: var(--alert); font-weight: 700; margin-top: 12px; }
+
+    /* Toolbar */
+    #dashboard { display: none; }
+    .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+    .toolbar input { flex: 1; min-width: 200px; }
+    .count { color: var(--label); font-weight: 700; margin-bottom: 12px; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; border: 2px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th { background: var(--soft); color: var(--teal); font-weight: 700; }
+    tbody tr.row { cursor: pointer; }
+    tbody tr.row:hover { background: #f7faf9; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 13px; font-weight: 700; }
+    .tag.yes { background: #e3f1ec; color: #1d6b4f; }
+    .tag.no { background: #fbe9e7; color: var(--alert); }
+    .tag.warn { background: #fff4e5; color: #8a5a00; }
+
+    /* Details */
+    tr.details td { background: #fbfdfc; white-space: normal; }
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 28px; padding: 8px 4px; }
+    .detail-grid h3 { margin: 0 0 6px; font-size: 15px; color: var(--teal); }
+    .detail-grid p { margin: 2px 0; font-size: 14px; }
+    .detail-grid b { color: #555; }
+    .empty { padding: 30px; text-align: center; color: var(--label); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Registered Students</h1>
+  </header>
+
+  <main>
+    <!-- Staff login -->
+    <section id="login">
+      <label for="password">Staff password</label>
+      <input type="password" id="password" placeholder="Enter password">
+      <button type="button" id="loginBtn">View students</button>
+      <p class="error" id="loginError"></p>
+    </section>
+
+    <!-- Student list -->
+    <section id="dashboard">
+      <div class="toolbar">
+        <input type="text" id="search" placeholder="Search by name, LRN or parent">
+        <select id="gradeFilter">
+          <option value="">All grades</option>
+        </select>
+        <button type="button" class="secondary" id="refreshBtn">Refresh</button>
+        <button type="button" class="secondary" id="exportBtn">Download CSV</button>
+      </div>
+      <p class="count" id="count"></p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>LRN</th>
+              <th>Grade / Section</th>
+              <th>Age</th>
+              <th>Sex</th>
+              <th>Parent contact</th>
+              <th>Health alerts</th>
+              <th>Consent</th>
+              <th>Registered</th>
+            </tr>
+          </thead>
+          <tbody id="studentRows"></tbody>
+        </table>
+      </div>
+      <p class="count" style="margin-top:10px">Tap a student to see full details.</p>
+    </section>
+  </main>
+
+  <script src="Students.js"></script>
+</body>
+</html>
