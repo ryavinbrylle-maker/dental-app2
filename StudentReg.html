@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Registration</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal: #336e7b;
+      --label: #7f8c88;
+      --border: #bccbc6;
+      --placeholder: #b5c7c0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "DM Sans", Arial, sans-serif;
+      background: #ffffff;
+    }
+    header {
+      background: var(--teal);
+      padding: 24px 20px;
+    }
+    header h1 {
+      margin: 0;
+      color: #000;
+      font-size: 36px;
+      font-weight: 700;
+    }
+    form {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 32px 32px 48px;
+    }
+    h2 {
+      color: var(--teal);
+      font-size: 20px;
+      margin: 36px 0 18px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--border);
+    }
+    h2:first-of-type { margin-top: 0; }
+    .field { margin-bottom: 22px; }
+    .row { display: flex; gap: 20px; }
+    .row .field { flex: 1; min-width: 0; }
+    label, .group-label {
+      display: block;
+      color: var(--label);
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    input[type="text"], input[type="tel"], input[type="date"],
+    input[type="number"], select, textarea {
+      width: 100%;
+      height: 50px;
+      padding: 0 16px;
+      font-family: inherit;
+      font-size: 17px;
+      color: #333;
+      border: 2px solid var(--border);
+      background: #fff;
+      outline: none;
+    }
+    textarea { height: auto; padding: 12px 16px; resize: vertical; }
+    input::placeholder, textarea::placeholder { color: var(--placeholder); }
+    input:focus, select:focus, textarea:focus { border-color: #000; }
+    select:invalid,
+    select:has(option[value=""]:checked) { color: var(--placeholder); }
+    select option { color: #333; }
+    input[readonly] { background: #f3f6f5; }
+
+    .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+    .checks label, .consent label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      color: #333;
+      margin: 0;
+    }
+    .checks input, .consent input { width: 18px; height: 18px; accent-color: var(--teal); }
+    .consent label { align-items: flex-start; }
+    .consent input { flex-shrink: 0; margin-top: 3px; }
+
+    .actions { display: flex; justify-content: flex-end; margin-top: 30px; }
+    button {
+      background: var(--teal);
+      color: #c9d6d2;
+      border: none;
+      border-radius: 6px;
+      padding: 14px 30px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { background: #285a65; }
+    .note { color: var(--label); font-size: 15px; margin: 0 0 24px; }
+    #message {
+      margin-top: 20px;
+      color: var(--teal);
+      font-weight: 700;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Student Registration</h1>
+  </header>
+
+  <form id="regForm">
+
+    <p class="note">Only the student name is required. Fill in what you know &mdash; the rest can be completed later.</p>
+
+    <!-- ===== STUDENT INFORMATION ===== -->
+    <h2>Student Information</h2>
+
+    <div class="field">
+      <label for="lrn">LRN (Learner Reference No.)</label>
+      <input type="text" id="lrn" placeholder="e.g 123456789012"
+             pattern="[0-9]{12}" maxlength="12" title="12-digit LRN">
+    </div>
+
+    <div class="field">
+      <label for="studentName">Student name</label>
+      <input type="text" id="studentName" placeholder="e.g Liam Prince" required>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="birthdate">Birthdate</label>
+        <input type="date" id="birthdate">
+      </div>
+      <div class="field">
+        <label for="age">Age</label>
+        <input type="text" id="age" placeholder="Auto" readonly>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="sex">Sex</label>
+        <select id="sex">
+          <option value="" disabled selected>Choose sex</option>
+          <option>Male</option>
+          <option>Female</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="bloodType">Blood type</label>
+        <select id="bloodType">
+          <option value="" disabled selected>Choose type</option>
+          <option>A+</option><option>A-</option>
+          <option>B+</option><option>B-</option>
+          <option>AB+</option><option>AB-</option>
+          <option>O+</option><option>O-</option>
+          <option>Unknown</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="grade">Grade</label>
+        <select id="grade">
+          <option value="" disabled selected>Choose grade</option>
+          <option>Kinder</option>
+          <option>Grade 1</option>
+          <option>Grade 2</option>
+          <option>Grade 3</option>
+          <option>Grade 4</option>
+          <option>Grade 5</option>
+          <option>Grade 6</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="section">Section</label>
+        <select id="section">
+          <option value="" disabled selected>Choose section</option>
+          <option>Section A</option>
+          <option>Section B</option>
+          <option>Section C</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="height">Height (cm)</label>
+        <input type="number" id="height" placeholder="e.g 120" min="50" max="220">
+      </div>
+      <div class="field">
+        <label for="weight">Weight (kg)</label>
+        <input type="number" id="weight" placeholder="e.g 25" min="5" max="150" step="0.1">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="address">Address</label>
+      <input type="text" id="address" placeholder="e.g Looc, Jagna">
+    </div>
+
+    <!-- ===== PARENT / GUARDIAN ===== -->
+    <h2>Parent / Guardian</h2>
+
+    <div class="field">
+      <label for="parentName">Parent / guardian name</label>
+      <input type="text" id="parentName" placeholder="e.g Maria Prince">
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="relationship">Relationship</label>
+        <select id="relationship">
+          <option value="" disabled selected>Choose</option>
+          <option>Mother</option>
+          <option>Father</option>
+          <option>Guardian</option>
+          <option>Grandparent</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="contact">Contact number</label>
+        <input type="tel" id="contact" placeholder="e.g 09xxxxxxxxx"
+               pattern="09[0-9]{9}" maxlength="11"
+               title="11-digit number starting with 09">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="emergencyContact">Emergency contact (other person)</label>
+      <input type="tel" id="emergencyContact" placeholder="e.g 09xxxxxxxxx"
+             pattern="09[0-9]{9}" maxlength="11"
+             title="11-digit number starting with 09">
+    </div>
+
+    <!-- ===== MEDICAL INFORMATION ===== -->
+    <h2>Medical Information</h2>
+
+    <div class="field">
+      <span class="group-label">Medical conditions</span>
+      <div class="checks" id="conditions">
+        <label><input type="checkbox" value="Asthma"> Asthma</label>
+        <label><input type="checkbox" value="Heart condition"> Heart condition</label>
+        <label><input type="checkbox" value="Diabetes"> Diabetes</label>
+        <label><input type="checkbox" value="Bleeding disorder"> Bleeding disorder</label>
+        <label><input type="checkbox" value="Epilepsy / seizures"> Epilepsy / seizures</label>
+        <label><input type="checkbox" value="Anemia"> Anemia</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="otherConditions">Other conditions</label>
+      <input type="text" id="otherConditions" placeholder="e.g none">
+    </div>
+
+    <div class="field">
+      <label for="allergies">Allergies (medicine, food, latex)</label>
+      <input type="text" id="allergies" placeholder="e.g Penicillin, peanuts">
+    </div>
+
+    <div class="field">
+      <label for="medications">Current medications</label>
+      <input type="text" id="medications" placeholder="e.g none">
+    </div>
+
+    <!-- ===== DENTAL HISTORY ===== -->
+    <h2>Dental History</h2>
+
+    <div class="row">
+      <div class="field">
+        <label for="lastVisit">Last dental visit</label>
+        <input type="date" id="lastVisit">
+      </div>
+      <div class="field">
+        <label for="brushing">Brushing per day</label>
+        <select id="brushing">
+          <option value="" disabled selected>Choose</option>
+          <option>None</option>
+          <option>1 time</option>
+          <option>2 times</option>
+          <option>3 or more</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="group-label">Current dental concerns</span>
+      <div class="checks" id="dentalConcerns">
+        <label><input type="checkbox" value="Toothache"> Toothache</label>
+        <label><input type="checkbox" value="Cavities"> Cavities</label>
+        <label><input type="checkbox" value="Bleeding gums"> Bleeding gums</label>
+        <label><input type="checkbox" value="Loose tooth"> Loose tooth</label>
+        <label><input type="checkbox" value="Sensitive teeth"> Sensitive teeth</label>
+        <label><input type="checkbox" value="Bad breath"> Bad breath</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="dentalNotes">Notes</label>
+      <textarea id="dentalNotes" rows="3" placeholder="e.g Had tooth extraction last year"></textarea>
+    </div>
+
+    <!-- ===== CONSENT ===== -->
+    <h2>Consent</h2>
+
+    <div class="field consent">
+      <label>
+        <input type="checkbox" id="consent">
+        Parent / guardian agrees to dental check-up and basic treatment by the school nurse.
+      </label>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Confirm</button>
+    </div>
+
+    <p id="message"></p>
+  </form>
+
+  <script src="StudentReg.js"></script>
+</body>
+</html>
