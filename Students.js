@@ -1,8 +1,12 @@
-// Dentist / nurse view of all registered students.
+// Dentist-only view of all registered students.
+// The real check happens on the server (api/students.js); this page never stores the password.
 
 const API_URL = "/api/students";
 
+let username = "";
 let password = "";
+let idleTimer = null;
+const IDLE_MINUTES = 15; // auto log out after 15 minutes of no activity
 let students = [];
 
 const loginBox = document.getElementById("login");
@@ -52,7 +56,7 @@ function healthAlerts(s) {
 // ---------- load data ----------
 function loadStudents() {
   countText.textContent = "Loading...";
-  return fetch(API_URL, { headers: { "x-staff-password": password } })
+  return fetch(API_URL, { headers: { "x-dentist-user": username, "x-dentist-password": password } })
     .then(function (res) {
       return res.text().then(function (body) {
         let data = {};
@@ -199,27 +203,65 @@ function downloadCsv() {
 
 // ---------- events ----------
 function login() {
+  username = document.getElementById("username").value.trim();
   password = document.getElementById("password").value;
   loginError.textContent = "";
-  if (!password) { loginError.textContent = "Please enter the password."; return; }
+  if (window.location.protocol === "file:") {
+    loginError.textContent = "This page only works online. Open it from your Vercel link, e.g. dental-app2-git-main-dental-app1.vercel.app/Students.html";
+    return;
+  }
+  if (!username || !password) { loginError.textContent = "Please enter your username and password."; return; }
+
+  const btn = document.getElementById("loginBtn");
+  btn.disabled = true; btn.textContent = "Checking...";
 
   loadStudents()
     .then(function () {
+      document.getElementById("password").value = "";
       loginBox.style.display = "none";
       dashboard.style.display = "block";
+      resetIdleTimer();
     })
     .catch(function (err) {
+      username = ""; password = "";
       loginError.textContent = err.message;
       countText.textContent = "";
+    })
+    .finally(function () {
+      btn.disabled = false; btn.textContent = "Log in";
     });
 }
 
+function logout(reason) {
+  username = ""; password = ""; students = [];
+  rowsBody.innerHTML = "";
+  searchInput.value = "";
+  clearTimeout(idleTimer);
+  dashboard.style.display = "none";
+  loginBox.style.display = "block";
+  loginError.textContent = reason || "";
+}
+
+function resetIdleTimer() {
+  if (!password) return;
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(function () {
+    logout("You were logged out after " + IDLE_MINUTES + " minutes of no activity.");
+  }, IDLE_MINUTES * 60 * 1000);
+}
+
 document.getElementById("loginBtn").addEventListener("click", login);
-document.getElementById("password").addEventListener("keydown", function (e) {
-  if (e.key === "Enter") login();
+["username", "password"].forEach(function (id) {
+  document.getElementById(id).addEventListener("keydown", function (e) {
+    if (e.key === "Enter") login();
+  });
+});
+document.getElementById("logoutBtn").addEventListener("click", function () { logout(); });
+["click", "keydown", "scroll", "touchstart"].forEach(function (ev) {
+  document.addEventListener(ev, resetIdleTimer, { passive: true });
 });
 document.getElementById("refreshBtn").addEventListener("click", function () {
-  loadStudents().catch(function (err) { countText.textContent = err.message; });
+  loadStudents().catch(function (err) { logout(err.message); });
 });
 document.getElementById("exportBtn").addEventListener("click", downloadCsv);
 searchInput.addEventListener("input", render);
