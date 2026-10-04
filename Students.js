@@ -11,7 +11,6 @@ let token = "";
 let students = [];
 let knownIds = new Set();
 let newIds = new Set();
-let openIds = new Set();      // students whose details are expanded
 let refreshTimer = null;
 let firstLoad = true;
 
@@ -195,16 +194,13 @@ function render() {
     cell(tr, s.consent ? tag("Yes", "yes") : tag("No", "no"));
     cell(tr, formatDate(s.registered_on));
 
-    tr.addEventListener("click", function () {
-      if (openIds.has(s.id)) openIds.delete(s.id); else openIds.add(s.id);
-      render();
-    });
+    tr.addEventListener("click", function () { openRecord(s); }); // in Dental.js
     rowsBody.appendChild(tr);
-    if (openIds.has(s.id)) rowsBody.appendChild(detailsRow(s));
   });
 }
 
-function detailsRow(s) {
+// Full student details as a grid (used on the student record page)
+function studentInfoGrid(s) {
   const sections = [
     ["Student", [
       ["Birthdate", formatDate(s.birthdate)], ["Blood type", text(s.blood_type)],
@@ -225,10 +221,6 @@ function detailsRow(s) {
     ]]
   ];
 
-  const row = document.createElement("tr");
-  row.className = "details";
-  const td = document.createElement("td");
-  td.colSpan = 9;
   const grid = document.createElement("div");
   grid.className = "detail-grid";
   sections.forEach(function (sec) {
@@ -242,8 +234,7 @@ function detailsRow(s) {
     });
     grid.appendChild(box);
   });
-  td.appendChild(grid); row.appendChild(td);
-  return row;
+  return grid;
 }
 
 // ---------- CSV export ----------
@@ -314,10 +305,12 @@ function login() {
 function logout(reason) {
   stopAutoRefresh();
   clearToken();
-  students = []; knownIds = new Set(); newIds = new Set(); openIds = new Set();
+  students = []; knownIds = new Set(); newIds = new Set();
   rowsBody.innerHTML = "";
   searchInput.value = "";
   dashboard.style.display = "none";
+  document.getElementById("record").style.display = "none";
+  document.getElementById("visitForm").style.display = "none";
   loginBox.style.display = "block";
   loginError.textContent = reason || "";
 }

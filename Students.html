@@ -76,6 +76,89 @@
     .detail-grid p { margin: 2px 0; font-size: 14px; }
     .detail-grid b { color: #555; }
     .empty { padding: 30px; text-align: center; color: var(--label); }
+
+    /* ===== Student record & visit entry ===== */
+    .view { display: none; }
+    .bar {
+      display: flex; align-items: center; gap: 14px; background: var(--teal); color: #fff;
+      padding: 16px 18px; border-radius: 10px; margin-bottom: 18px;
+    }
+    .bar h2 { margin: 0; font-size: 24px; color: #fff; }
+    .bar .sub { font-size: 14px; font-weight: 700; opacity: .85; text-transform: uppercase; }
+    .back {
+      width: 42px; height: 42px; padding: 0; border-radius: 50%; flex-shrink: 0;
+      background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.4); font-size: 20px;
+    }
+    .card { border: 1px solid #e3e8e6; border-radius: 12px; padding: 18px; margin-bottom: 16px; background: #fff; }
+    .card h3 { margin: 0 0 12px; font-size: 20px; color: #1f2a2e; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .card-head h3 { margin: 0; }
+    .small-label { display: block; color: var(--label); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; margin: 14px 0 8px; }
+    .condition { border: 2px solid #5cbf6b; background: #f6fcf7; border-radius: 10px; padding: 14px 16px; }
+    .condition.alert { border-color: #e69500; background: #fffaf0; }
+    .condition h4 { margin: 0 0 8px; color: #1d6b4f; font-size: 16px; }
+    .condition.alert h4 { color: #8a5a00; }
+    .condition p { margin: 4px 0; }
+    .dmft { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; max-width: 520px; }
+    .dmft b { color: #1f2a2e; }
+    .muted { color: var(--label); }
+
+    /* chips */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #d5dbd9;
+      background: #f1f1f5; color: #222; font-weight: 700; font-size: 15px;
+    }
+    .chip:hover { background: #e7e9ee; }
+    .chip.on { background: #e0f0ed; border-color: var(--teal); color: var(--teal); }
+    .chip.add { width: 40px; padding: 0; border: 2px dashed #bbb; background: #fff; color: var(--teal); font-size: 20px; }
+    textarea.box, input.box {
+      width: 100%; border: none; background: #f1f1f5; border-radius: 10px; padding: 12px 14px;
+      font-family: inherit; font-size: 16px; outline: none; height: auto;
+    }
+    textarea.box { min-height: 90px; resize: vertical; }
+    input.box { height: 46px; }
+
+    /* tooth map */
+    .seg { display: flex; gap: 10px; margin-bottom: 10px; }
+    .seg button {
+      flex: 1; height: 40px; border-radius: 20px; background: #f1f1f5; color: #222; border: 1px solid #d5dbd9;
+    }
+    .seg button.on { background: #e0f0ed; color: var(--teal); border-color: var(--teal); }
+    .teeth-scroll { overflow-x: auto; padding-bottom: 6px; }
+    .teeth-row { display: flex; gap: 6px; margin-bottom: 6px; width: max-content; }
+    .tooth {
+      width: 56px; height: 56px; border-radius: 10px; border: 2px solid transparent;
+      background: #e5e7eb; color: #1f2a2e; font-weight: 700; font-size: 17px; padding: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1;
+    }
+    .tooth:hover { background: #d9dce2; }
+    .tooth small { font-size: 10px; font-weight: 700; }
+    .tooth.static { cursor: default; }
+    .tooth.mini { width: 46px; height: 46px; font-size: 15px; }
+    .tooth.selected { border-color: #111; }
+    .tooth.s-Decayed  { background: #e5483f; color: #fff; }
+    .tooth.s-Missing  { background: #6b7280; color: #fff; }
+    .tooth.s-Filled   { background: #4a8af4; color: #fff; }
+    .tooth.s-Fractured{ background: #f07c12; color: #fff; }
+    .tooth.s-Sealant  { background: #43b97f; color: #10331f; }
+    .tooth.gap { margin-left: 10px; }
+
+    /* visit history */
+    .timeline { border-left: 3px solid var(--teal); margin-left: 6px; padding-left: 18px; }
+    .visit { position: relative; padding-bottom: 20px; }
+    .visit::before {
+      content: ""; position: absolute; left: -26px; top: 4px; width: 13px; height: 13px;
+      border-radius: 50%; background: var(--teal);
+    }
+    .visit-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .visit-top .when { color: #555; }
+    .visit h5 { margin: 12px 0 6px; font-size: 15px; }
+    .mini-btn { height: 30px; padding: 0 12px; font-size: 13px; border-radius: 15px; background: #fff; color: #555; border: 1px solid #ccc; }
+    .mini-btn.danger { color: #c4501a; border-color: #f0b38f; background: #fff5ef; }
+    .card .detail-grid h3 { font-size: 15px; color: var(--teal); margin: 0 0 6px; }
+    .visit p { margin: 4px 0; }
+    .save-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -127,10 +210,101 @@
           <tbody id="studentRows"></tbody>
         </table>
       </div>
-      <p class="count" style="margin-top:10px">Tap a student to see full details.</p>
+      <p class="count" style="margin-top:10px">Tap a student to open their dental record and add a check-up.</p>
+    </section>
+
+    <!-- ===== Student record (opens when the dentist taps a student) ===== -->
+    <section id="record" class="view">
+      <div class="bar">
+        <button type="button" class="back" id="recordBack" aria-label="Back">&lsaquo;</button>
+        <div>
+          <h2>Student Record</h2>
+          <div class="sub" id="recordName"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Condition</h3>
+        <div id="conditionBox"></div>
+
+        <span class="small-label">Tooth map (current)</span>
+        <div id="currentMap"></div>
+
+        <span class="small-label">DMFT (latest visit)</span>
+        <div id="dmftBox"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>Visit History</h3>
+          <button type="button" id="addVisitBtn">Add Visit</button>
+        </div>
+        <div id="visitList"></div>
+      </div>
+
+      <div class="card">
+        <h3>Student Details</h3>
+        <div id="studentInfo"></div>
+      </div>
+    </section>
+
+    <!-- ===== Visit entry (check-up form) ===== -->
+    <section id="visitForm" class="view">
+      <div class="bar">
+        <button type="button" class="back" id="visitBack" aria-label="Back">&lsaquo;</button>
+        <div>
+          <h2 id="visitTitle">Visit Entry</h2>
+          <div class="sub" id="visitName"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="small-label" style="margin-top:0">Date</span>
+        <input type="date" class="box" id="visitDate">
+      </div>
+
+      <div class="card">
+        <h3>Chief complaint</h3>
+        <span class="small-label">Symptoms (tap to select)</span>
+        <div class="chips" id="symptomChips"></div>
+        <div id="addSymptomRow" style="display:none; margin-top:10px; gap:8px;">
+          <input type="text" class="box" id="newSymptom" placeholder="New symptom, e.g. Bad breath" style="flex:1">
+          <button type="button" id="addSymptomOk">Add</button>
+        </div>
+        <span class="small-label">Chief complaint (free text)</span>
+        <textarea class="box" id="complaint" placeholder="Free text..."></textarea>
+      </div>
+
+      <div class="card">
+        <h3>Examination</h3>
+        <p class="muted" style="margin:0 0 6px">Select a tooth on the map, then choose a status. Tap another tooth to record more teeth.</p>
+        <span class="small-label">Tooth map</span>
+        <div class="seg">
+          <button type="button" id="segPermanent" class="on">Permanent</button>
+          <button type="button" id="segPrimary">Primary</button>
+        </div>
+        <div class="teeth-scroll" id="examMap"></div>
+
+        <div id="toothPanel" style="display:none">
+          <p style="font-weight:700; margin:12px 0 8px">Selected: tooth <span id="selTooth"></span></p>
+          <div class="chips" id="statusChips"></div>
+          <span class="small-label">Tooth note (optional)</span>
+          <input type="text" class="box" id="toothNote" placeholder="Optional...">
+        </div>
+
+        <span class="small-label">Examination notes</span>
+        <textarea class="box" id="examNotes" placeholder="Notes for this examination section..."></textarea>
+      </div>
+
+      <p class="error" id="visitError"></p>
+      <div class="save-row">
+        <button type="button" class="secondary" id="visitCancel">Cancel</button>
+        <button type="button" id="visitSave">Save visit</button>
+      </div>
     </section>
   </main>
 
   <script src="Students.js"></script>
+  <script src="Dental.js"></script>
 </body>
 </html>
