@@ -41,6 +41,14 @@
     #login input { width: 100%; margin-bottom: 14px; }
     #login button { width: 100%; }
     .error { color: var(--alert); font-weight: 700; margin-top: 12px; }
+    .live { color: #1d6b4f; font-size: 14px; margin-left: 10px; }
+    .live.off { color: var(--label); }
+    tr.new td { background: #e3f1ec; transition: background 2s; }
+    .toast {
+      display: none; position: fixed; right: 20px; bottom: 20px; z-index: 10;
+      background: var(--teal); color: #fff; padding: 14px 18px; border-radius: 8px;
+      font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.2);
+    }
     .lock { color: var(--teal); font-weight: 700; font-size: 18px; margin: 0 0 20px; text-align: center; }
 
     /* Toolbar */
@@ -98,7 +106,8 @@
         <button type="button" class="secondary" id="exportBtn">Download CSV</button>
         <button type="button" id="logoutBtn">Log out</button>
       </div>
-      <p class="count" id="count"></p>
+      <p class="count"><span id="count"></span> <span class="live" id="live">&#9679; Live &ndash; updates automatically</span></p>
+      <div class="toast" id="toast"></div>
 
       <div class="table-wrap">
         <table>

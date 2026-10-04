@@ -1,13 +1,19 @@
 // Dentist-only view of all registered students.
-// The real check happens on the server (api/students.js); this page never stores the password.
+// - Log in once; the login lasts 12 hours (even if the page is refreshed).
+// - The list checks for new registrations every 15 seconds by itself.
 
+const LOGIN_URL = "/api/login";
 const API_URL = "/api/students";
+const REFRESH_SECONDS = 15;
+const TOKEN_KEY = "dentistToken";
 
-let username = "";
-let password = "";
-let idleTimer = null;
-const IDLE_MINUTES = 15; // auto log out after 15 minutes of no activity
+let token = "";
 let students = [];
+let knownIds = new Set();
+let newIds = new Set();
+let openIds = new Set();      // students whose details are expanded
+let refreshTimer = null;
+let firstLoad = true;
 
 const loginBox = document.getElementById("login");
 const dashboard = document.getElementById("dashboard");
@@ -16,6 +22,21 @@ const rowsBody = document.getElementById("studentRows");
 const searchInput = document.getElementById("search");
 const gradeFilter = document.getElementById("gradeFilter");
 const countText = document.getElementById("count");
+const liveText = document.getElementById("live");
+const toast = document.getElementById("toast");
+
+// ---------- saved login (only for this browser tab) ----------
+function saveToken(t) {
+  token = t;
+  try { sessionStorage.setItem(TOKEN_KEY, t); } catch (e) {}
+}
+function readToken() {
+  try { return sessionStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; }
+}
+function clearToken() {
+  token = "";
+  try { sessionStorage.removeItem(TOKEN_KEY); } catch (e) {}
+}
 
 // ---------- helpers ----------
 function text(v) {
@@ -23,27 +44,22 @@ function text(v) {
   if (Array.isArray(v)) return v.length ? v.join(", ") : "—";
   return String(v);
 }
-
 function formatDate(v) {
   if (!v) return "—";
   const d = new Date(v);
   return isNaN(d) ? text(v) : d.toLocaleDateString();
 }
-
 function cell(row, value) {
   const td = document.createElement("td");
   if (value instanceof Node) td.appendChild(value); else td.textContent = value;
   row.appendChild(td);
 }
-
 function tag(label, kind) {
   const span = document.createElement("span");
   span.className = "tag " + kind;
   span.textContent = label;
   return span;
 }
-
-// Anything the dentist should notice before treatment
 function healthAlerts(s) {
   const alerts = [];
   if (s.allergies) alerts.push("Allergy");
@@ -52,26 +68,79 @@ function healthAlerts(s) {
   if (s.medications) alerts.push("On medication");
   return alerts;
 }
+function readJson(res) {
+  return res.text().then(function (body) {
+    let data = {};
+    try { data = JSON.parse(body); } catch (e) {}
+    if (res.status === 404) throw new Error("Back end not found (a file in the api folder is missing on the server)");
+    if (!res.ok) {
+      const err = new Error(data.error || ("Server error " + res.status));
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  });
+}
+function showToast(message) {
+  toast.textContent = message;
+  toast.style.display = "block";
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(function () { toast.style.display = "none"; }, 6000);
+}
 
 // ---------- load data ----------
-function loadStudents() {
-  countText.textContent = "Loading...";
-  return fetch(API_URL, { headers: { "x-dentist-user": username, "x-dentist-password": password } })
-    .then(function (res) {
-      return res.text().then(function (body) {
-        let data = {};
-        try { data = JSON.parse(body); } catch (e) {}
-        if (res.status === 404) throw new Error("Back end not found (api/students.js is missing on the server)");
-        if (!res.ok) throw new Error(data.error || ("Server error " + res.status));
-        return data.students || [];
-      });
-    })
-    .then(function (list) {
+function loadStudents(quiet) {
+  if (!quiet) countText.textContent = "Loading...";
+  return fetch(API_URL, { headers: { "Authorization": "Bearer " + token } })
+    .then(readJson)
+    .then(function (data) {
+      const list = data.students || [];
+
+      // Find students that weren't there last time
+      const added = list.filter(function (s) { return !knownIds.has(s.id); });
+      if (!firstLoad && added.length) {
+        added.forEach(function (s) { newIds.add(s.id); });
+        showToast(added.length === 1
+          ? "New student registered: " + added[0].name
+          : added.length + " new students registered");
+        setTimeout(function () {
+          added.forEach(function (s) { newIds.delete(s.id); });
+          render();
+        }, 60000); // highlight new rows for 1 minute
+      }
+      knownIds = new Set(list.map(function (s) { return s.id; }));
+      firstLoad = false;
+
       students = list;
+      liveText.classList.remove("off");
+      liveText.innerHTML = "&#9679; Live &ndash; updated " + new Date().toLocaleTimeString();
       fillGradeFilter();
       render();
     });
 }
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  refreshTimer = setInterval(function () {
+    if (document.hidden) return; // don't check while the tab is in the background
+    loadStudents(true).catch(handleRefreshError);
+  }, REFRESH_SECONDS * 1000);
+}
+function stopAutoRefresh() {
+  clearInterval(refreshTimer);
+  refreshTimer = null;
+}
+function handleRefreshError(err) {
+  if (err.status === 401) { logout(err.message); return; }
+  // Network hiccup: keep the list on screen and try again next time
+  liveText.classList.add("off");
+  liveText.textContent = "● Reconnecting...";
+}
+
+// When the dentist comes back to the tab, update straight away
+document.addEventListener("visibilitychange", function () {
+  if (!document.hidden && token) loadStudents(true).catch(handleRefreshError);
+});
 
 function fillGradeFilter() {
   const current = gradeFilter.value;
@@ -82,7 +151,7 @@ function fillGradeFilter() {
     o.value = g; o.textContent = g;
     gradeFilter.appendChild(o);
   });
-  gradeFilter.value = current;
+  gradeFilter.value = grades.includes(current) ? current : "";
 }
 
 // ---------- table ----------
@@ -113,7 +182,7 @@ function render() {
 
   list.forEach(function (s) {
     const tr = document.createElement("tr");
-    tr.className = "row";
+    tr.className = "row" + (newIds.has(s.id) ? " new" : "");
 
     cell(tr, text(s.name));
     cell(tr, text(s.lrn));
@@ -121,21 +190,21 @@ function render() {
     cell(tr, text(s.age));
     cell(tr, text(s.sex));
     cell(tr, text(s.contact));
-
     const alerts = healthAlerts(s);
     cell(tr, alerts.length ? tag(alerts.join(", "), "warn") : "—");
     cell(tr, s.consent ? tag("Yes", "yes") : tag("No", "no"));
     cell(tr, formatDate(s.registered_on));
 
-    tr.addEventListener("click", function () { toggleDetails(tr, s); });
+    tr.addEventListener("click", function () {
+      if (openIds.has(s.id)) openIds.delete(s.id); else openIds.add(s.id);
+      render();
+    });
     rowsBody.appendChild(tr);
+    if (openIds.has(s.id)) rowsBody.appendChild(detailsRow(s));
   });
 }
 
-function toggleDetails(tr, s) {
-  const next = tr.nextElementSibling;
-  if (next && next.classList.contains("details")) { next.remove(); return; }
-
+function detailsRow(s) {
   const sections = [
     ["Student", [
       ["Birthdate", formatDate(s.birthdate)], ["Blood type", text(s.blood_type)],
@@ -162,7 +231,6 @@ function toggleDetails(tr, s) {
   td.colSpan = 9;
   const grid = document.createElement("div");
   grid.className = "detail-grid";
-
   sections.forEach(function (sec) {
     const box = document.createElement("div");
     const h = document.createElement("h3"); h.textContent = sec[0]; box.appendChild(h);
@@ -174,9 +242,8 @@ function toggleDetails(tr, s) {
     });
     grid.appendChild(box);
   });
-
   td.appendChild(grid); row.appendChild(td);
-  tr.after(row);
+  return row;
 }
 
 // ---------- CSV export ----------
@@ -201,10 +268,16 @@ function downloadCsv() {
   URL.revokeObjectURL(a.href);
 }
 
-// ---------- events ----------
+// ---------- login / logout ----------
+function showDashboard() {
+  loginBox.style.display = "none";
+  dashboard.style.display = "block";
+  startAutoRefresh();
+}
+
 function login() {
-  username = document.getElementById("username").value.trim();
-  password = document.getElementById("password").value;
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
   loginError.textContent = "";
   if (window.location.protocol === "file:") {
     loginError.textContent = "This page only works online. Open it from your Vercel link, e.g. dental-app2-git-main-dental-app1.vercel.app/Students.html";
@@ -215,15 +288,21 @@ function login() {
   const btn = document.getElementById("loginBtn");
   btn.disabled = true; btn.textContent = "Checking...";
 
-  loadStudents()
-    .then(function () {
+  fetch(LOGIN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: username, password: password })
+  })
+    .then(readJson)
+    .then(function (data) {
+      saveToken(data.token);
       document.getElementById("password").value = "";
-      loginBox.style.display = "none";
-      dashboard.style.display = "block";
-      resetIdleTimer();
+      firstLoad = true;
+      return loadStudents();
     })
+    .then(showDashboard)
     .catch(function (err) {
-      username = ""; password = "";
+      clearToken();
       loginError.textContent = err.message;
       countText.textContent = "";
     })
@@ -233,23 +312,17 @@ function login() {
 }
 
 function logout(reason) {
-  username = ""; password = ""; students = [];
+  stopAutoRefresh();
+  clearToken();
+  students = []; knownIds = new Set(); newIds = new Set(); openIds = new Set();
   rowsBody.innerHTML = "";
   searchInput.value = "";
-  clearTimeout(idleTimer);
   dashboard.style.display = "none";
   loginBox.style.display = "block";
   loginError.textContent = reason || "";
 }
 
-function resetIdleTimer() {
-  if (!password) return;
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(function () {
-    logout("You were logged out after " + IDLE_MINUTES + " minutes of no activity.");
-  }, IDLE_MINUTES * 60 * 1000);
-}
-
+// ---------- events ----------
 document.getElementById("loginBtn").addEventListener("click", login);
 ["username", "password"].forEach(function (id) {
   document.getElementById(id).addEventListener("keydown", function (e) {
@@ -257,12 +330,17 @@ document.getElementById("loginBtn").addEventListener("click", login);
   });
 });
 document.getElementById("logoutBtn").addEventListener("click", function () { logout(); });
-["click", "keydown", "scroll", "touchstart"].forEach(function (ev) {
-  document.addEventListener(ev, resetIdleTimer, { passive: true });
-});
 document.getElementById("refreshBtn").addEventListener("click", function () {
-  loadStudents().catch(function (err) { logout(err.message); });
+  loadStudents().catch(handleRefreshError);
 });
 document.getElementById("exportBtn").addEventListener("click", downloadCsv);
 searchInput.addEventListener("input", render);
 gradeFilter.addEventListener("change", render);
+
+// ---------- start: stay logged in after a page refresh ----------
+token = readToken();
+if (token && window.location.protocol !== "file:") {
+  loadStudents()
+    .then(showDashboard)
+    .catch(function (err) { logout(err.status === 401 ? err.message : ""); });
+}
