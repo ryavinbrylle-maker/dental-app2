@@ -167,7 +167,38 @@
     .chip.brush.b-Fractured{ background: #f07c12; }
     .chip.brush.b-Sealant  { background: #43b97f; color: #10331f; }
     .hint { margin: 0 0 8px; font-weight: 700; color: var(--teal); min-height: 1.2em; }
+    .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+    .edit-wide { grid-column: 1 / -1; }
+    select.box { height: 46px; }
     .save-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+
+    /* ===== Grade -> Section containers ===== */
+    .grade-block { margin-bottom: 26px; }
+    .grade-title {
+      margin: 0 0 12px; font-size: 22px; color: #1f2a2e;
+      padding-bottom: 6px; border-bottom: 3px solid var(--teal);
+    }
+    .section-box { border: 2px solid var(--border); border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+    .section-head {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+      background: var(--soft); padding: 10px 14px; border-bottom: 1px solid var(--border);
+    }
+    .section-head h3 { margin: 0; font-size: 17px; color: var(--teal); }
+    .section-head .tally { color: var(--label); font-weight: 700; font-size: 14px; }
+    .section-box.unassigned { border-color: #e69500; }
+    .section-box.unassigned .section-head { background: #fff4e5; }
+    .section-box.unassigned h3 { color: #8a5a00; }
+    .section-box table th { background: #fff; }
+    tr.gender-row td {
+      background: #fbfdfc; color: var(--label); font-size: 13px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .04em; padding: 6px 12px;
+    }
+    .code-badge {
+      display: inline-block; min-width: 46px; text-align: center; padding: 3px 8px; border-radius: 6px;
+      font-weight: 700; font-size: 14px; color: #fff; background: #4a7fb5;
+    }
+    .code-badge.F { background: #c0587e; }
+    .code-badge.none { background: #b9c2c0; }
   </style>
 </head>
 <body>
@@ -190,7 +221,7 @@
     <!-- Student list -->
     <section id="dashboard">
       <div class="toolbar">
-        <input type="text" id="search" placeholder="Search by name, LRN or parent">
+        <input type="text" id="search" placeholder="Search by name, code (e.g. M-1) or parent">
         <select id="gradeFilter">
           <option value="">All grades</option>
         </select>
@@ -201,24 +232,8 @@
       <p class="count"><span id="count"></span> <span class="live" id="live">&#9679; Live &ndash; updates automatically</span></p>
       <div class="toast" id="toast"></div>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>LRN</th>
-              <th>Grade / Section</th>
-              <th>Age</th>
-              <th>Sex</th>
-              <th>Parent contact</th>
-              <th>Health alerts</th>
-              <th>Consent</th>
-              <th>Registered</th>
-            </tr>
-          </thead>
-          <tbody id="studentRows"></tbody>
-        </table>
-      </div>
+      <!-- Grade -> Section -> Students (built by Students.js) -->
+      <div id="groups"></div>
       <p class="count" style="margin-top:10px">Tap a student to open their dental record and add a check-up.</p>
     </section>
 
@@ -254,6 +269,42 @@
       <div class="card">
         <h3>Student Details</h3>
         <div id="studentInfo"></div>
+      </div>
+
+      <!-- Change class / student code, or delete the student -->
+      <div class="card">
+        <h3>Class &amp; Student Code</h3>
+        <div class="edit-grid">
+          <div class="edit-wide">
+            <span class="small-label">Student name</span>
+            <input type="text" class="box" id="editName">
+          </div>
+          <div>
+            <span class="small-label">Grade</span>
+            <select class="box" id="editGrade"></select>
+          </div>
+          <div>
+            <span class="small-label">Section</span>
+            <select class="box" id="editSection"></select>
+          </div>
+          <div>
+            <span class="small-label">Gender</span>
+            <select class="box" id="editGender">
+              <option value="M">M &ndash; Male</option>
+              <option value="F">F &ndash; Female</option>
+            </select>
+          </div>
+          <div>
+            <span class="small-label">Number</span>
+            <input type="number" class="box" id="editNumber" min="1" max="999" step="1" inputmode="numeric">
+          </div>
+        </div>
+        <p class="hint" id="editPreview" style="margin-top:12px"></p>
+        <p class="error" id="editError"></p>
+        <div class="save-row" style="justify-content:space-between">
+          <button type="button" class="mini-btn danger" id="deleteStudentBtn" style="height:46px;padding:0 18px">Delete student</button>
+          <button type="button" id="saveStudentBtn">Save changes</button>
+        </div>
       </div>
     </section>
 

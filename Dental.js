@@ -104,16 +104,124 @@ function hasAny(teeth, dentition) {
 }
 
 // ---------- student record ----------
+function recordSubtitle(s) {
+  const place = [s.grade, s.section].filter(Boolean).join(" – ");
+  return [s.name, place, studentCode(s)].filter(Boolean).join(" · ");
+}
+
 function openRecord(student) {
   currentStudent = student;
   visits = [];
-  document.getElementById("recordName").textContent = student.name || "";
+  fillStudentHeader();
+  fillEditForm();
   renderRecord();
-  const info = document.getElementById("studentInfo");
-  info.innerHTML = "";
-  info.appendChild(studentInfoGrid(student));
   show("record");
   loadVisits();
+}
+
+function fillStudentHeader() {
+  document.getElementById("recordName").textContent = recordSubtitle(currentStudent);
+  const info = document.getElementById("studentInfo");
+  info.innerHTML = "";
+  info.appendChild(studentInfoGrid(currentStudent));
+}
+
+// ---------- edit class / student code, delete student ----------
+const GRADE_OPTIONS = ["Kinder", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"];
+const SECTION_OPTIONS = ["Section A", "Section B", "Section C"];
+
+function fillSelect(id, options, value) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = "";
+  const all = options.slice();
+  if (value && !all.includes(value)) all.push(value); // keep unusual existing values
+  if (!value) {
+    const o = el("option", "", "Choose"); o.value = ""; o.disabled = true; o.selected = true;
+    sel.appendChild(o);
+  }
+  all.forEach(function (v) {
+    const o = el("option", "", v); o.value = v;
+    if (v === value) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function fillEditForm() {
+  const s = currentStudent;
+  document.getElementById("editName").value = s.name || "";
+  fillSelect("editGrade", GRADE_OPTIONS, s.grade);
+  fillSelect("editSection", SECTION_OPTIONS, s.section);
+  document.getElementById("editGender").value =
+    s.code_gender || (s.sex === "Female" ? "F" : "M");
+  document.getElementById("editNumber").value = s.code_number || "";
+  document.getElementById("editError").textContent = "";
+  const del = document.getElementById("deleteStudentBtn");
+  del.dataset.confirm = ""; del.textContent = "Delete student";
+  updateEditPreview();
+}
+
+function updateEditPreview() {
+  const g = document.getElementById("editGender").value;
+  const raw = document.getElementById("editNumber").value.trim();
+  const ok = /^[0-9]+$/.test(raw) && parseInt(raw, 10) >= 1 && parseInt(raw, 10) <= 999;
+  document.getElementById("editPreview").textContent =
+    "Student code: " + (ok ? g + "-" + parseInt(raw, 10) : "— (enter a number from 1 to 999)");
+}
+
+function saveStudent() {
+  const err = document.getElementById("editError");
+  err.textContent = "";
+  const body = {
+    name: document.getElementById("editName").value.trim(),
+    grade: document.getElementById("editGrade").value,
+    section: document.getElementById("editSection").value,
+    codeGender: document.getElementById("editGender").value,
+    codeNumber: document.getElementById("editNumber").value.trim()
+  };
+  if (!body.name) { err.textContent = "Please enter the student's name."; return; }
+  if (!body.grade || !body.section) { err.textContent = "Please choose the grade and section."; return; }
+  if (!/^[0-9]+$/.test(body.codeNumber) || +body.codeNumber < 1 || +body.codeNumber > 999) {
+    err.textContent = "The code number must be a whole number from 1 to 999."; return;
+  }
+
+  const btn = document.getElementById("saveStudentBtn");
+  btn.disabled = true; btn.textContent = "Saving...";
+  api(API_URL + "?id=" + currentStudent.id, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  })
+    .then(function (data) {
+      currentStudent = data.student;
+      fillStudentHeader();
+      fillEditForm();
+      renderRecord();
+      showToast("Saved: " + recordSubtitle(currentStudent));
+      return loadStudents(true); // refresh the grouped list
+    })
+    .catch(function (e) { if (!handleAuthError(e)) err.textContent = e.message; })
+    .finally(function () { btn.disabled = false; btn.textContent = "Save changes"; });
+}
+
+function deleteStudent() {
+  const del = document.getElementById("deleteStudentBtn");
+  if (del.dataset.confirm !== "1") {
+    del.dataset.confirm = "1";
+    del.textContent = "Tap again to delete " + (currentStudent.name || "student") + " and all visits";
+    setTimeout(function () { del.dataset.confirm = ""; del.textContent = "Delete student"; }, 5000);
+    return;
+  }
+  const name = currentStudent.name;
+  api(API_URL + "?id=" + currentStudent.id, { method: "DELETE" })
+    .then(function () {
+      showToast(name + " was deleted");
+      currentStudent = null;
+      show("dashboard");
+      return loadStudents(true);
+    })
+    .catch(function (e) {
+      if (!handleAuthError(e)) document.getElementById("editError").textContent = e.message;
+    });
 }
 
 function loadVisits() {
@@ -277,7 +385,7 @@ function openVisitForm(visit) {
   form = { symptoms: chosen, extraSymptoms: extra, teeth: teeth, dentition: dentition, selected: null, brush: null };
 
   document.getElementById("visitTitle").textContent = visit ? "Edit Visit" : "Visit Entry";
-  document.getElementById("visitName").textContent = currentStudent.name || "";
+  document.getElementById("visitName").textContent = recordSubtitle(currentStudent);
   document.getElementById("visitDate").value = visit ? dateOnly(visit.visit_date) : todayIso();
   document.getElementById("complaint").value = (visit && visit.chief_complaint) || "";
   document.getElementById("examNotes").value = (visit && visit.exam_notes) || "";
@@ -418,6 +526,10 @@ function saveVisit() {
 }
 
 // ---------- events ----------
+document.getElementById("saveStudentBtn").addEventListener("click", saveStudent);
+document.getElementById("deleteStudentBtn").addEventListener("click", deleteStudent);
+document.getElementById("editGender").addEventListener("change", updateEditPreview);
+document.getElementById("editNumber").addEventListener("input", updateEditPreview);
 document.getElementById("recordBack").addEventListener("click", function () { show("dashboard"); });
 document.getElementById("addVisitBtn").addEventListener("click", function () { openVisitForm(null); });
 document.getElementById("visitBack").addEventListener("click", function () { show("record"); });

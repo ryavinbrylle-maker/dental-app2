@@ -33,15 +33,51 @@ birthdateInput.addEventListener("change", function () {
   ageInput.value = calculateAge(birthdateInput.value);
 });
 
+// ---------- Student code (gender letter + number -> e.g. "M-1") ----------
+const codeGenderInput = document.getElementById("codeGender");
+const codeNumberInput = document.getElementById("codeNumber");
+const codePreview = document.getElementById("codePreview");
+
+// Returns { gender, number, code } or { error }
+function readStudentCode() {
+  const g = codeGenderInput.value;
+  const raw = codeNumberInput.value.trim();
+  if (g !== "M" && g !== "F") return { error: "Please choose M or F for the student code." };
+  if (!/^[0-9]+$/.test(raw)) return { error: "The student code number must be a whole number like 1, 2, 3." };
+  const n = parseInt(raw, 10);
+  if (n < 1 || n > 999) return { error: "The student code number must be between 1 and 999." };
+  return { gender: g, number: n, code: g + "-" + n };
+}
+
+function updateCodePreview() {
+  const c = readStudentCode();
+  const ready = !c.error;
+  codePreview.textContent = "Your code: " + (ready ? c.code : "—");
+  codePreview.classList.toggle("empty", !ready);
+  codeNumberInput.setCustomValidity(
+    codeNumberInput.value && !/^[0-9]+$/.test(codeNumberInput.value.trim()) ? "Whole numbers only" : ""
+  );
+}
+codeGenderInput.addEventListener("change", updateCodePreview);
+codeNumberInput.addEventListener("input", updateCodePreview);
+updateCodePreview();
+
 form.addEventListener("submit", function (e) {
   e.preventDefault();
 
+  const code = readStudentCode();
+  if (code.error) {
+    message.textContent = code.error;
+    codeNumberInput.focus();
+    return;
+  }
+
   const student = {
-    lrn: val("lrn"),
     name: val("studentName"),
+    codeGender: code.gender,
+    codeNumber: code.number,
     birthdate: val("birthdate"),
     age: ageInput.value,
-    sex: val("sex"),
     bloodType: val("bloodType"),
     grade: val("grade"),
     section: val("section"),
@@ -68,6 +104,11 @@ form.addEventListener("submit", function (e) {
     registeredOn: new Date().toISOString()
   };
 
+  if (window.location.protocol === "file:") {
+    message.textContent = "This form only saves online. Open it from your Vercel link.";
+    return;
+  }
+
   const button = form.querySelector("button[type=submit]");
   button.disabled = true;
   message.textContent = "Saving...";
@@ -87,9 +128,11 @@ form.addEventListener("submit", function (e) {
       });
     })
     .then(function () {
-      message.textContent = student.name + " has been registered.";
+      message.textContent = student.name + " (" + student.grade + " – " + student.section +
+                            ", " + code.code + ") has been registered.";
       form.reset();
       ageInput.value = "";
+      updateCodePreview();
     })
     .catch(function (err) {
       console.error(err);

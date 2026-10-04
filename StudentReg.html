@@ -100,6 +100,10 @@
     }
     button:hover { background: #285a65; }
     .note { color: var(--label); font-size: 15px; margin: 0 0 24px; }
+    .code-preview {
+      margin: -8px 0 22px; font-size: 18px; font-weight: 700; color: var(--teal);
+    }
+    .code-preview.empty { color: var(--placeholder); }
     #message {
       margin-top: 20px;
       color: var(--teal);
@@ -115,21 +119,59 @@
 
   <form id="regForm">
 
-    <p class="note">Only the student name is required. Fill in what you know &mdash; the rest can be completed later.</p>
+    <p class="note">Required: student name, grade, section and student code. Fill in the rest if you know it &mdash; it can be completed later.</p>
 
     <!-- ===== STUDENT INFORMATION ===== -->
     <h2>Student Information</h2>
 
     <div class="field">
-      <label for="lrn">LRN (Learner Reference No.)</label>
-      <input type="text" id="lrn" placeholder="e.g 123456789012"
-             pattern="[0-9]{12}" maxlength="12" title="12-digit LRN">
-    </div>
-
-    <div class="field">
       <label for="studentName">Student name</label>
       <input type="text" id="studentName" placeholder="e.g Liam Prince" required>
     </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="grade">Grade</label>
+        <select id="grade" required>
+          <option value="" disabled selected>Choose grade</option>
+          <option>Kinder</option>
+          <option>Grade 1</option>
+          <option>Grade 2</option>
+          <option>Grade 3</option>
+          <option>Grade 4</option>
+          <option>Grade 5</option>
+          <option>Grade 6</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="section">Section</label>
+        <select id="section" required>
+          <option value="" disabled selected>Choose section</option>
+          <option>Section A</option>
+          <option>Section B</option>
+          <option>Section C</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Student code = gender letter + number, e.g. M-1 or F-2 -->
+    <span class="group-label">Student code</span>
+    <div class="row">
+      <div class="field">
+        <label for="codeGender">Gender</label>
+        <select id="codeGender" required>
+          <option value="" disabled selected>Choose</option>
+          <option value="M">M &ndash; Male</option>
+          <option value="F">F &ndash; Female</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="codeNumber">Number</label>
+        <input type="number" id="codeNumber" placeholder="e.g 1" min="1" max="999" step="1"
+               inputmode="numeric" required>
+      </div>
+    </div>
+    <p class="code-preview" id="codePreview">Your code: &mdash;</p>
 
     <div class="row">
       <div class="field">
@@ -144,14 +186,6 @@
 
     <div class="row">
       <div class="field">
-        <label for="sex">Sex</label>
-        <select id="sex">
-          <option value="" disabled selected>Choose sex</option>
-          <option>Male</option>
-          <option>Female</option>
-        </select>
-      </div>
-      <div class="field">
         <label for="bloodType">Blood type</label>
         <select id="bloodType">
           <option value="" disabled selected>Choose type</option>
@@ -160,31 +194,6 @@
           <option>AB+</option><option>AB-</option>
           <option>O+</option><option>O-</option>
           <option>Unknown</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="field">
-        <label for="grade">Grade</label>
-        <select id="grade">
-          <option value="" disabled selected>Choose grade</option>
-          <option>Kinder</option>
-          <option>Grade 1</option>
-          <option>Grade 2</option>
-          <option>Grade 3</option>
-          <option>Grade 4</option>
-          <option>Grade 5</option>
-          <option>Grade 6</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="section">Section</label>
-        <select id="section">
-          <option value="" disabled selected>Choose section</option>
-          <option>Section A</option>
-          <option>Section B</option>
-          <option>Section C</option>
         </select>
       </div>
     </div>

@@ -17,7 +17,7 @@ let firstLoad = true;
 const loginBox = document.getElementById("login");
 const dashboard = document.getElementById("dashboard");
 const loginError = document.getElementById("loginError");
-const rowsBody = document.getElementById("studentRows");
+const groupsBox = document.getElementById("groups");
 const searchInput = document.getElementById("search");
 const gradeFilter = document.getElementById("gradeFilter");
 const countText = document.getElementById("count");
@@ -141,9 +141,65 @@ document.addEventListener("visibilitychange", function () {
   if (!document.hidden && token) loadStudents(true).catch(handleRefreshError);
 });
 
+// ---------- student codes & ordering ----------
+// "M-1", "F-12" (or "" if the student has no code yet)
+function studentCode(s) {
+  return s.code_gender && s.code_number ? s.code_gender + "-" + s.code_number : "";
+}
+function hasPlace(s) {
+  return Boolean(s.grade && s.section && studentCode(s));
+}
+
+// Kinder first, then Grade 1, 2 ... 10, 11 (by the number, not as text)
+function gradeRank(g) {
+  if (/^kinder/i.test(g)) return -1;
+  const m = String(g).match(/\d+/);
+  return m ? parseInt(m[0], 10) : 1000;
+}
+function compareGrades(a, b) {
+  return gradeRank(a) - gradeRank(b) || String(a).localeCompare(String(b), undefined, { numeric: true });
+}
+function compareSections(a, b) {
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+// Inside a section: Male first, then Female; each by the code NUMBER (1, 2, 9, 10, 11 ...)
+function compareCodes(a, b) {
+  const ga = a.code_gender === "M" ? 0 : a.code_gender === "F" ? 1 : 2;
+  const gb = b.code_gender === "M" ? 0 : b.code_gender === "F" ? 1 : 2;
+  if (ga !== gb) return ga - gb;
+  const na = Number(a.code_number) || Infinity;
+  const nb = Number(b.code_number) || Infinity;
+  if (na !== nb) return na - nb;
+  return String(a.name || "").localeCompare(String(b.name || ""));
+}
+
+// Build Grade -> Section -> [students]; students without grade/section/code go to "unassigned"
+function groupStudents(list) {
+  const grades = new Map();
+  const unassigned = [];
+  list.forEach(function (s) {
+    if (!hasPlace(s)) { unassigned.push(s); return; }
+    if (!grades.has(s.grade)) grades.set(s.grade, new Map());
+    const sections = grades.get(s.grade);
+    if (!sections.has(s.section)) sections.set(s.section, []);
+    sections.get(s.section).push(s);
+  });
+  const ordered = Array.from(grades.keys()).sort(compareGrades).map(function (g) {
+    const secMap = grades.get(g);
+    return {
+      grade: g,
+      sections: Array.from(secMap.keys()).sort(compareSections).map(function (sec) {
+        return { section: sec, students: secMap.get(sec).slice().sort(compareCodes) };
+      })
+    };
+  });
+  unassigned.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+  return { grades: ordered, unassigned: unassigned };
+}
+
 function fillGradeFilter() {
   const current = gradeFilter.value;
-  const grades = Array.from(new Set(students.map(function (s) { return s.grade; }).filter(Boolean))).sort();
+  const grades = Array.from(new Set(students.map(function (s) { return s.grade; }).filter(Boolean))).sort(compareGrades);
   gradeFilter.innerHTML = '<option value="">All grades</option>';
   grades.forEach(function (g) {
     const o = document.createElement("option");
@@ -153,56 +209,118 @@ function fillGradeFilter() {
   gradeFilter.value = grades.includes(current) ? current : "";
 }
 
-// ---------- table ----------
+// ---------- list ----------
 function filtered() {
   const q = searchInput.value.trim().toLowerCase();
   const g = gradeFilter.value;
   return students.filter(function (s) {
     if (g && s.grade !== g) return false;
     if (!q) return true;
-    return [s.name, s.lrn, s.parent_name, s.section]
+    const code = studentCode(s).toLowerCase();
+    if (code && (code === q || code.replace("-", "") === q.replace(/[\s-]/g, ""))) return true;
+    return [s.name, s.parent_name, s.section, s.grade]
       .some(function (v) { return v && String(v).toLowerCase().includes(q); });
   });
 }
 
+const COLUMNS = ["Code", "Name", "Age", "Parent contact", "Health alerts", "Consent", "Registered"];
+
+function studentRow(s) {
+  const tr = document.createElement("tr");
+  tr.className = "row" + (newIds.has(s.id) ? " new" : "");
+  const code = studentCode(s);
+  const badge = document.createElement("span");
+  badge.className = "code-badge " + (code ? s.code_gender : "none");
+  badge.textContent = code || "—";
+  cell(tr, badge);
+  cell(tr, text(s.name));
+  cell(tr, text(s.age));
+  cell(tr, text(s.contact));
+  const alerts = healthAlerts(s);
+  cell(tr, alerts.length ? tag(alerts.join(", "), "warn") : "—");
+  cell(tr, s.consent ? tag("Yes", "yes") : tag("No", "no"));
+  cell(tr, formatDate(s.registered_on));
+  tr.addEventListener("click", function () { openRecord(s); }); // in Dental.js
+  return tr;
+}
+
+function sectionBox(title, list, opts) {
+  opts = opts || {};
+  const box = document.createElement("div");
+  box.className = "section-box" + (opts.unassigned ? " unassigned" : "");
+
+  const head = document.createElement("div");
+  head.className = "section-head";
+  const h = document.createElement("h3"); h.textContent = title;
+  const males = list.filter(function (s) { return s.code_gender === "M"; }).length;
+  const females = list.filter(function (s) { return s.code_gender === "F"; }).length;
+  const tally = document.createElement("span"); tally.className = "tally";
+  tally.textContent = opts.unassigned
+    ? list.length + " student" + (list.length === 1 ? "" : "s") + " – tap to add grade, section and code"
+    : males + " male · " + females + " female · " + list.length + " total";
+  head.appendChild(h); head.appendChild(tally);
+  box.appendChild(head);
+
+  const wrap = document.createElement("div"); wrap.className = "table-wrap"; wrap.style.border = "none";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  const hr = document.createElement("tr");
+  COLUMNS.forEach(function (c) { const th = document.createElement("th"); th.textContent = c; hr.appendChild(th); });
+  thead.appendChild(hr); table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  let lastGender = null;
+  list.forEach(function (s) {
+    if (!opts.unassigned && s.code_gender !== lastGender) {
+      lastGender = s.code_gender;
+      const gr = document.createElement("tr"); gr.className = "gender-row";
+      const td = document.createElement("td"); td.colSpan = COLUMNS.length;
+      td.textContent = lastGender === "M" ? "Male" : "Female";
+      gr.appendChild(td); tbody.appendChild(gr);
+    }
+    tbody.appendChild(studentRow(s));
+  });
+  table.appendChild(tbody); wrap.appendChild(table); box.appendChild(wrap);
+  return box;
+}
+
 function render() {
   const list = filtered();
-  rowsBody.innerHTML = "";
+  groupsBox.innerHTML = "";
   countText.textContent = list.length + " of " + students.length + " students";
 
   if (!list.length) {
-    const tr = document.createElement("tr");
-    const td = document.createElement("td");
-    td.colSpan = 9; td.className = "empty";
-    td.textContent = students.length ? "No students match your search." : "No students registered yet.";
-    tr.appendChild(td); rowsBody.appendChild(tr);
+    const p = document.createElement("p"); p.className = "empty";
+    p.textContent = students.length ? "No students match your search." : "No students registered yet.";
+    groupsBox.appendChild(p);
     return;
   }
 
-  list.forEach(function (s) {
-    const tr = document.createElement("tr");
-    tr.className = "row" + (newIds.has(s.id) ? " new" : "");
-
-    cell(tr, text(s.name));
-    cell(tr, text(s.lrn));
-    cell(tr, text([s.grade, s.section].filter(Boolean).join(" - ")));
-    cell(tr, text(s.age));
-    cell(tr, text(s.sex));
-    cell(tr, text(s.contact));
-    const alerts = healthAlerts(s);
-    cell(tr, alerts.length ? tag(alerts.join(", "), "warn") : "—");
-    cell(tr, s.consent ? tag("Yes", "yes") : tag("No", "no"));
-    cell(tr, formatDate(s.registered_on));
-
-    tr.addEventListener("click", function () { openRecord(s); }); // in Dental.js
-    rowsBody.appendChild(tr);
+  const groups = groupStudents(list);
+  groups.grades.forEach(function (g) {
+    const block = document.createElement("div"); block.className = "grade-block";
+    const title = document.createElement("h2"); title.className = "grade-title"; title.textContent = g.grade;
+    block.appendChild(title);
+    g.sections.forEach(function (sec) {
+      block.appendChild(sectionBox(g.grade + " – " + sec.section, sec.students));
+    });
+    groupsBox.appendChild(block);
   });
+  if (groups.unassigned.length) {
+    const block = document.createElement("div"); block.className = "grade-block";
+    const title = document.createElement("h2"); title.className = "grade-title"; title.textContent = "Needs a grade, section or code";
+    block.appendChild(title);
+    block.appendChild(sectionBox("Not yet placed", groups.unassigned, { unassigned: true }));
+    groupsBox.appendChild(block);
+  }
 }
 
 // Full student details as a grid (used on the student record page)
 function studentInfoGrid(s) {
   const sections = [
     ["Student", [
+      ["Class", text([s.grade, s.section].filter(Boolean).join(" – "))],
+      ["Student code", studentCode(s) || "—"],
       ["Birthdate", formatDate(s.birthdate)], ["Blood type", text(s.blood_type)],
       ["Height", s.height_cm ? s.height_cm + " cm" : "—"], ["Weight", s.weight_kg ? s.weight_kg + " kg" : "—"],
       ["Address", text(s.address)]
@@ -239,9 +357,17 @@ function studentInfoGrid(s) {
 
 // ---------- CSV export ----------
 function downloadCsv() {
-  const list = filtered();
+  // Same order as the screen: Grade -> Section -> code number
+  const g = groupStudents(filtered());
+  const list = [];
+  g.grades.forEach(function (gr) { gr.sections.forEach(function (sec) { list.push.apply(list, sec.students); }); });
+  list.push.apply(list, g.unassigned);
   if (!list.length) return;
-  const cols = Object.keys(list[0]);
+  const hidden = ["lrn", "code_gender", "code_number", "grade", "section", "name", "student_code"];
+  const cols = ["grade", "section", "student_code", "name"].concat(
+    Object.keys(list[0]).filter(function (c) { return !hidden.includes(c); })
+  );
+  list.forEach(function (s) { s.student_code = studentCode(s); });
   const esc = function (v) {
     if (v === null || v === undefined) return "";
     if (Array.isArray(v)) v = v.join("; ");
@@ -306,7 +432,7 @@ function logout(reason) {
   stopAutoRefresh();
   clearToken();
   students = []; knownIds = new Set(); newIds = new Set();
-  rowsBody.innerHTML = "";
+  groupsBox.innerHTML = "";
   searchInput.value = "";
   dashboard.style.display = "none";
   document.getElementById("record").style.display = "none";
