@@ -158,6 +158,15 @@
     .mini-btn.danger { color: #c4501a; border-color: #f0b38f; background: #fff5ef; }
     .card .detail-grid h3 { font-size: 15px; color: var(--teal); margin: 0 0 6px; }
     .visit p { margin: 4px 0; }
+    .chip .cnt { font-size: 12px; opacity: .8; margin-left: 4px; }
+    .chip.brush { color: #fff; border-color: transparent; }
+    .chip.brush.b-Sound    { background: #9aa3ae; }
+    .chip.brush.b-Decayed  { background: #e5483f; }
+    .chip.brush.b-Missing  { background: #6b7280; }
+    .chip.brush.b-Filled   { background: #4a8af4; }
+    .chip.brush.b-Fractured{ background: #f07c12; }
+    .chip.brush.b-Sealant  { background: #43b97f; color: #10331f; }
+    .hint { margin: 0 0 8px; font-weight: 700; color: var(--teal); min-height: 1.2em; }
     .save-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
   </style>
 </head>
@@ -277,18 +286,18 @@
 
       <div class="card">
         <h3>Examination</h3>
-        <p class="muted" style="margin:0 0 6px">Select a tooth on the map, then choose a status. Tap another tooth to record more teeth.</p>
+        <p class="muted" style="margin:0 0 6px"><b>1.</b> Pick a status &nbsp; <b>2.</b> Tap every tooth that has it. Tap a tooth again to undo.</p>
         <span class="small-label">Tooth map</span>
         <div class="seg">
           <button type="button" id="segPermanent" class="on">Permanent</button>
           <button type="button" id="segPrimary">Primary</button>
         </div>
+        <div class="chips" id="statusChips" style="margin:6px 0 12px"></div>
+        <p class="hint" id="brushHint"></p>
         <div class="teeth-scroll" id="examMap"></div>
 
         <div id="toothPanel" style="display:none">
-          <p style="font-weight:700; margin:12px 0 8px">Selected: tooth <span id="selTooth"></span></p>
-          <div class="chips" id="statusChips"></div>
-          <span class="small-label">Tooth note (optional)</span>
+          <span class="small-label">Note for tooth <span id="selTooth"></span> (optional)</span>
           <input type="text" class="box" id="toothNote" placeholder="Optional...">
         </div>
 

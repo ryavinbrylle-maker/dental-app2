@@ -274,7 +274,7 @@ function openVisitForm(visit) {
   if (hasAny(teeth, "Primary") && !hasAny(teeth, "Permanent")) dentition = "Primary";
   else if (!Object.keys(teeth).length && Number(currentStudent.age) > 0 && Number(currentStudent.age) < 6) dentition = "Primary";
 
-  form = { symptoms: chosen, extraSymptoms: extra, teeth: teeth, dentition: dentition, selected: null };
+  form = { symptoms: chosen, extraSymptoms: extra, teeth: teeth, dentition: dentition, selected: null, brush: null };
 
   document.getElementById("visitTitle").textContent = visit ? "Edit Visit" : "Visit Entry";
   document.getElementById("visitName").textContent = currentStudent.name || "";
@@ -325,34 +325,56 @@ function renderExam() {
   document.getElementById("segPermanent").classList.toggle("on", form.dentition === "Permanent");
   document.getElementById("segPrimary").classList.toggle("on", form.dentition === "Primary");
 
+  // Status buttons ("brushes") with how many teeth have each status
+  const chips = document.getElementById("statusChips");
+  chips.innerHTML = "";
+  STATUSES.forEach(function (st) {
+    const c = el("button", "chip" + (form.brush === st ? " brush b-" + st : ""), st);
+    c.type = "button";
+    const n = Object.values(form.teeth).filter(function (t) { return t.status === st; }).length;
+    if (n && st !== "Sound") c.appendChild(el("span", "cnt", "(" + n + ")"));
+    c.addEventListener("click", function () {
+      form.brush = form.brush === st ? null : st;
+      renderExam();
+    });
+    chips.appendChild(c);
+  });
+
+  document.getElementById("brushHint").textContent = form.brush
+    ? (form.brush === "Sound" ? "Tap teeth to clear them back to Sound." : "Tap every " + form.brush.toLowerCase() + " tooth.")
+    : "Pick a status above to start marking teeth.";
+
   const mapBox = document.getElementById("examMap");
   mapBox.innerHTML = "";
   mapBox.appendChild(toothMap(form.teeth, {
     rows: TEETH[form.dentition],
     selectable: true,
     selected: form.selected,
-    onSelect: function (n) { saveToothNote(); form.selected = n; renderExam(); }
+    onSelect: tapTooth
   }));
 
   const panel = document.getElementById("toothPanel");
   if (!form.selected) { panel.style.display = "none"; return; }
   panel.style.display = "block";
   document.getElementById("selTooth").textContent = form.selected;
-
-  const current = (form.teeth[form.selected] || {}).status || "Sound";
-  const chips = document.getElementById("statusChips");
-  chips.innerHTML = "";
-  STATUSES.forEach(function (st) {
-    const c = el("button", "chip" + (current === st ? " on" : ""), st);
-    c.type = "button";
-    c.addEventListener("click", function () {
-      const note = document.getElementById("toothNote").value.trim();
-      form.teeth[form.selected] = { status: st, note: note };
-      renderExam();
-    });
-    chips.appendChild(c);
-  });
   document.getElementById("toothNote").value = (form.teeth[form.selected] || {}).note || "";
+}
+
+// Tap a tooth: give it the chosen status, or undo if it already has it
+function tapTooth(n) {
+  saveToothNote();
+  form.selected = n;
+  if (form.brush) {
+    const t = form.teeth[n];
+    const note = t ? t.note : "";
+    if (form.brush === "Sound" || (t && t.status === form.brush)) {
+      if (note) form.teeth[n] = { status: "Sound", note: note };
+      else delete form.teeth[n];
+    } else {
+      form.teeth[n] = { status: form.brush, note: note || "" };
+    }
+  }
+  renderExam();
 }
 
 // Keep the note typed for the selected tooth
