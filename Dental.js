@@ -21,11 +21,15 @@ let currentStudent = null;
 let visits = [];
 let editingVisit = null;
 let form = null; // { symptoms:Set, extraSymptoms:[], teeth:{}, dentition, selected }
+let recordReturnView = "dashboard"; // where "back" goes from a student record
+let visitReturnView = "record";     // where "back"/"cancel" goes from the visit form
+let afterVisitSave = null;          // optional hook (used by Appointments.js)
 
 const views = {
   dashboard: document.getElementById("dashboard"),
   record: document.getElementById("record"),
-  visitForm: document.getElementById("visitForm")
+  visitForm: document.getElementById("visitForm"),
+  appointments: document.getElementById("appointments")
 };
 function show(name) {
   Object.keys(views).forEach(function (k) { views[k].style.display = k === name ? "block" : "none"; });
@@ -109,7 +113,8 @@ function recordSubtitle(s) {
   return [s.name, place, studentCode(s)].filter(Boolean).join(" · ");
 }
 
-function openRecord(student) {
+function openRecord(student, returnView) {
+  recordReturnView = returnView || "dashboard";
   currentStudent = student;
   visits = [];
   fillStudentHeader();
@@ -117,6 +122,7 @@ function openRecord(student) {
   renderRecord();
   show("record");
   loadVisits();
+  if (typeof loadApptHistory === "function") loadApptHistory(); // Appointments.js
 }
 
 function fillStudentHeader() {
@@ -314,7 +320,9 @@ function renderVisitList() {
 
     const actions = el("div");
     const edit = el("button", "mini-btn", "Edit"); edit.type = "button";
-    edit.addEventListener("click", function () { openVisitForm(v); });
+    edit.addEventListener("click", function () {
+      visitReturnView = "record"; afterVisitSave = null; openVisitForm(v);
+    });
     const del = el("button", "mini-btn danger", "Delete"); del.type = "button";
     del.style.marginLeft = "6px";
     del.addEventListener("click", function () {
@@ -516,8 +524,13 @@ function saveVisit() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   })
-    .then(function () {
+    .then(function (data) {
       showToast(editingVisit ? "Visit updated" : "Check-up saved to " + currentStudent.name + "'s record");
+      if (afterVisitSave) {               // e.g. return to the appointment screen
+        const hook = afterVisitSave; afterVisitSave = null;
+        hook(data.visit);
+        return;
+      }
       show("record");
       return loadVisits();
     })
@@ -530,10 +543,20 @@ document.getElementById("saveStudentBtn").addEventListener("click", saveStudent)
 document.getElementById("deleteStudentBtn").addEventListener("click", deleteStudent);
 document.getElementById("editGender").addEventListener("change", updateEditPreview);
 document.getElementById("editNumber").addEventListener("input", updateEditPreview);
-document.getElementById("recordBack").addEventListener("click", function () { show("dashboard"); });
-document.getElementById("addVisitBtn").addEventListener("click", function () { openVisitForm(null); });
-document.getElementById("visitBack").addEventListener("click", function () { show("record"); });
-document.getElementById("visitCancel").addEventListener("click", function () { show("record"); });
+document.getElementById("recordBack").addEventListener("click", function () {
+  show(recordReturnView);
+  if (recordReturnView === "appointments" && typeof refreshSession === "function") refreshSession();
+});
+document.getElementById("addVisitBtn").addEventListener("click", function () {
+  visitReturnView = "record"; afterVisitSave = null; openVisitForm(null);
+});
+function leaveVisitForm() {
+  const back = visitReturnView;
+  visitReturnView = "record"; afterVisitSave = null;
+  show(back);
+}
+document.getElementById("visitBack").addEventListener("click", leaveVisitForm);
+document.getElementById("visitCancel").addEventListener("click", leaveVisitForm);
 document.getElementById("visitSave").addEventListener("click", saveVisit);
 document.getElementById("segPermanent").addEventListener("click", function () {
   saveToothNote(); form.dentition = "Permanent"; form.selected = null; renderExam();

@@ -199,6 +199,76 @@
     }
     .code-badge.F { background: #c0587e; }
     .code-badge.none { background: #b9c2c0; }
+
+    /* ===== Appointments ===== */
+    .ap-pickers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-items: end; }
+    .ap-load button { width: 100%; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .ap-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+    .ap-stat { border-radius: 10px; padding: 12px; background: var(--soft); border: 1px solid #e3e8e6; }
+    .ap-stat b { display: block; font-size: 26px; color: #1f2a2e; }
+    .ap-stat span { color: var(--label); font-size: 13px; font-weight: 700; text-transform: uppercase; }
+    .ap-stat.green { background: #e6f5ec; border-color: #9fd6b3; }
+    .ap-stat.yellow { background: #fff7db; border-color: #f0d77a; }
+    .ap-stat.red { background: #fde8e6; border-color: #f2a39b; }
+    .ap-stat.blue { background: #e6effa; border-color: #9dbbe6; }
+    .ap-progress { height: 10px; background: #e5e7eb; border-radius: 5px; margin-top: 14px; overflow: hidden; }
+    .ap-progress div { height: 100%; width: 0; background: #2e9e5b; transition: width .3s; }
+    .ap-last:empty { display: none; }
+    .ap-last {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      background: #f3f6f5; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-weight: 700;
+    }
+    .ap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+    .ap-current { border: 3px solid #2f6fd0; }
+    .ap-now { color: #2f6fd0; font-weight: 700; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+    .ap-who { display: flex; align-items: center; gap: 12px; margin: 8px 0 6px; }
+    .ap-who .code-badge { font-size: 20px; padding: 6px 12px; }
+    .ap-who h3 { margin: 0; font-size: 24px; }
+    .ap-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; font-size: 15px; margin-bottom: 10px; }
+    .ap-alert { background: #fff4e5; border-left: 4px solid #e69500; padding: 8px 12px; margin: 8px 0; font-weight: 700; color: #8a5a00; }
+    .ap-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .ap-actions button { height: 60px; font-size: 18px; border-radius: 10px; }
+    .btn-complete { background: #2e9e5b; }
+    .btn-complete:hover { background: #24804a; }
+    .btn-absent { background: #d93025; }
+    .btn-absent:hover { background: #b3261e; }
+    .ap-exam { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .ap-done { text-align: center; padding: 20px 0; }
+    .ap-done b { display: block; font-size: 22px; color: #2e9e5b; margin-bottom: 6px; }
+    .ap-next { margin: 0; padding-left: 22px; }
+    .ap-next li { padding: 6px 0; border-bottom: 1px solid #eef1f0; }
+    .ap-row {
+      display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; margin-bottom: 4px;
+      border: 1px solid transparent; cursor: pointer;
+    }
+    .ap-row:hover { filter: brightness(.97); }
+    .ap-row .nm { flex: 1; font-weight: 700; }
+    .ap-row .st { font-weight: 700; font-size: 14px; white-space: nowrap; }
+    .ap-row.s-Completed { background: #e6f5ec; } .ap-row.s-Completed .st { color: #1d6b4f; }
+    .ap-row.s-Waiting { background: #fff7db; }   .ap-row.s-Waiting .st { color: #8a6d00; }
+    .ap-row.s-Absent { background: #fbd5d1; border-color: #d93025; } .ap-row.s-Absent .st { color: #b3261e; }
+    .ap-row.s-Absent .nm { color: #8c1d18; }
+    .ap-row.current { background: #e6effa; border-color: #2f6fd0; } .ap-row.current .st { color: #2f6fd0; }
+    .ap-summary h3 { margin-bottom: 4px; }
+    .ap-summary .absent-list { background: #fde8e6; border: 2px solid #d93025; border-radius: 8px; padding: 10px 14px; margin-top: 12px; }
+    .ap-summary .absent-list p { margin: 4px 0; font-weight: 700; color: #8c1d18; }
+    .ap-score { font-size: 28px; font-weight: 700; color: #1f2a2e; }
+    .ap-hist { border-left: 4px solid #2e9e5b; background: #f6fcf8; border-radius: 6px; padding: 10px 14px; margin-bottom: 10px; }
+    .ap-hist.absent { border-left-color: #d93025; background: #fdeceb; }
+    .ap-hist.waiting { border-left-color: #e0b400; background: #fffbea; }
+    .ap-hist p { margin: 3px 0; }
+    @media (max-width: 760px) {
+      .ap-pickers { grid-template-columns: 1fr 1fr; }
+      .ap-stats { grid-template-columns: repeat(3, 1fr); }
+      .ap-grid { grid-template-columns: 1fr; }
+    }
+    @media print {
+      body * { visibility: hidden; }
+      .ap-summary, .ap-summary * { visibility: visible; }
+      .ap-summary { position: absolute; left: 0; top: 0; width: 100%; border: none; }
+      .ap-summary button { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -225,6 +295,7 @@
         <select id="gradeFilter">
           <option value="">All grades</option>
         </select>
+        <button type="button" id="openApptBtn">&#128197; Appointments</button>
         <button type="button" class="secondary" id="refreshBtn">Refresh</button>
         <button type="button" class="secondary" id="exportBtn">Download CSV</button>
         <button type="button" id="logoutBtn">Log out</button>
@@ -235,6 +306,61 @@
       <!-- Grade -> Section -> Students (built by Students.js) -->
       <div id="groups"></div>
       <p class="count" style="margin-top:10px">Tap a student to open their dental record and add a check-up.</p>
+    </section>
+
+    <!-- ===== Dental appointments: Grade/Section -> queue -> Complete / Absent ===== -->
+    <section id="appointments" class="view">
+      <div class="bar">
+        <button type="button" class="back" id="apBack" aria-label="Back">&lsaquo;</button>
+        <div>
+          <h2>Dental Appointments</h2>
+          <div class="sub" id="apSub">Step 1: choose a grade and section</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ap-pickers">
+          <div>
+            <span class="small-label" style="margin-top:0">Grade</span>
+            <select class="box" id="apGrade"></select>
+          </div>
+          <div>
+            <span class="small-label" style="margin-top:0">Section</span>
+            <select class="box" id="apSection" disabled></select>
+          </div>
+          <div>
+            <span class="small-label" style="margin-top:0">Appointment date</span>
+            <input type="date" class="box" id="apDate">
+          </div>
+          <div class="ap-load">
+            <button type="button" id="apLoad" disabled>Load section</button>
+          </div>
+        </div>
+        <p class="error" id="apError"></p>
+      </div>
+
+      <div id="apSession" style="display:none">
+        <div class="ap-stats" id="apStats"></div>
+        <div class="ap-progress"><div id="apBar"></div></div>
+        <p class="muted" id="apProgress" style="margin:6px 0 16px"></p>
+        <div class="ap-last" id="apLast"></div>
+
+        <div class="ap-grid">
+          <div>
+            <div class="card ap-current" id="apCurrent"></div>
+            <div class="card">
+              <h3>Next in queue</h3>
+              <ol class="ap-next" id="apNext"></ol>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Section list</h3>
+            <div id="apList"></div>
+          </div>
+        </div>
+
+        <div class="card ap-summary" id="apSummary"></div>
+      </div>
     </section>
 
     <!-- ===== Student record (opens when the dentist taps a student) ===== -->
@@ -264,6 +390,15 @@
           <button type="button" id="addVisitBtn">Add Visit</button>
         </div>
         <div id="visitList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>Appointment &amp; Attendance History</h3>
+          <button type="button" class="secondary" id="extraApptBtn">Add another appointment today</button>
+        </div>
+        <p class="hint" id="apptHistoryCount"></p>
+        <div id="apptHistory"></div>
       </div>
 
       <div class="card">
@@ -366,5 +501,6 @@
 
   <script src="Students.js"></script>
   <script src="Dental.js"></script>
+  <script src="Appointments.js"></script>
 </body>
 </html>

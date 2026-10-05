@@ -437,6 +437,7 @@ function logout(reason) {
   dashboard.style.display = "none";
   document.getElementById("record").style.display = "none";
   document.getElementById("visitForm").style.display = "none";
+  document.getElementById("appointments").style.display = "none";
   loginBox.style.display = "block";
   loginError.textContent = reason || "";
 }
