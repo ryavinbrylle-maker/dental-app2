@@ -15,6 +15,36 @@ const TEETH = {
   ]
 };
 const STATUSES = ["Sound", "Decayed", "Missing", "Filled", "Fractured", "Sealant"];
+// Conditions that can be COMBINED on one tooth (e.g. Sealant + Decayed).
+// "Sound" = checked and healthy, so it replaces the others.
+const CONDITIONS = ["Decayed", "Missing", "Filled", "Fractured", "Sealant"];
+const COND_COLOR = { Decayed: "#e5483f", Missing: "#6b7280", Filled: "#4a8af4", Fractured: "#f07c12", Sealant: "#43b97f" };
+const COND_ABBR = { Decayed: "D", Missing: "M", Filled: "F", Fractured: "Fx", Sealant: "S" };
+const TAP_DOUBLE_MS = 300;  // 2nd tap within this time = double-tap
+const TAP_MOVE_PX = 10;     // finger moved more than this = scrolling, not a tap
+
+// One tooth record -> { conditions: [...], note }.
+// Reads the new format ({conditions}) and old saved records ({status}).
+function toothInfo(t) {
+  if (!t) return null;
+  let list = Array.isArray(t.conditions) ? t.conditions : (t.status ? [t.status] : []);
+  list = STATUSES.filter(function (c) { return list.includes(c); }); // valid, no duplicates, fixed order
+  if (list.length > 1) list = list.filter(function (c) { return c !== "Sound"; });
+  const note = t.note || "";
+  if (!list.length && note) list = ["Sound"];
+  return list.length ? { conditions: list, note: note } : null;
+}
+function normalizeTeeth(teeth) {
+  const out = {};
+  Object.keys(teeth || {}).forEach(function (k) {
+    const i = toothInfo(teeth[k]);
+    if (i) out[k] = i;
+  });
+  return out;
+}
+function problemsOf(info) {
+  return info ? info.conditions.filter(function (c) { return c !== "Sound"; }) : [];
+}
 const DEFAULT_SYMPTOMS = ["Pain", "Swelling", "Bleeding", "Sensitivity"];
 
 let currentStudent = null;
@@ -71,26 +101,48 @@ function handleAuthError(err) {
 }
 
 // ---------- tooth map ----------
-// teeth: { "54": {status, note} }, opts: { selectable, selected, onSelect, mini, rows }
+// teeth: { "28": {conditions:[...], note} }
+// opts: { rows, mini, selectable, selected, changed, onTap(n), onDouble(n), onKey(n), instant() }
 function toothMap(teeth, opts) {
   const wrap = el("div");
   opts.rows.forEach(function (row) {
     const r = el("div", "teeth-row");
     row.forEach(function (num, i) {
       const n = String(num);
-      const info = teeth[n];
+      const info = toothInfo(teeth[n]);
+      const probs = problemsOf(info);
       const b = el("button", "tooth" + (opts.mini ? " mini" : "") + (opts.selectable ? "" : " static"));
       b.type = "button";
+      b.dataset.tooth = n;
       if (i === row.length / 2) b.classList.add("gap"); // small gap at the midline
-      b.appendChild(document.createTextNode(n));
-      if (info && info.status && info.status !== "Sound") {
-        b.classList.add("s-" + info.status);
-        b.appendChild(el("small", "", info.status));
+      b.appendChild(el("span", "num", n));
+
+      if (probs.length === 1) {
+        b.classList.add("s-" + probs[0]);
+        b.appendChild(el("small", "", probs[0]));
+      } else if (probs.length > 1) {
+        // Several conditions: split the tile into colour stripes + short codes (e.g. "D+S")
+        b.classList.add("multi");
+        const step = 100 / probs.length;
+        b.style.background = "linear-gradient(135deg," + probs.map(function (c, k) {
+          return COND_COLOR[c] + " " + (k * step) + "% " + ((k + 1) * step) + "%";
+        }).join(",") + ")";
+        b.appendChild(el("small", "", probs.map(function (c) { return COND_ABBR[c]; }).join("+")));
+        b.appendChild(el("span", "count-dot", String(probs.length)));
+      } else if (info) {
+        b.classList.add("s-Sound");
+        b.appendChild(el("small", "", "Sound"));
       }
-      if (info && info.note) b.title = info.note;
+      const label = "Tooth " + n + ": " + (info ? info.conditions.join(", ") : "not recorded") +
+                    (info && info.note ? " – " + info.note : "");
+      b.title = label;
+      b.setAttribute("aria-label", label);
+
       if (opts.selectable) {
         if (opts.selected === n) b.classList.add("selected");
-        b.addEventListener("click", function () { opts.onSelect(n); });
+        if (opts.changed === n) b.classList.add("changed");
+        if (tapState.timer && tapState.tooth === n) b.classList.add("pending");
+        attachToothTap(b, n, opts);
       } else {
         b.tabIndex = -1;
       }
@@ -99,6 +151,73 @@ function toothMap(teeth, opts) {
     wrap.appendChild(r);
   });
   return wrap;
+}
+
+// Touch + mouse handling with ONE code path (pointer events), so a tap never fires twice.
+// - Scrolling/zooming (finger moves, or the browser cancels the pointer) is ignored.
+// - Single tap waits TAP_DOUBLE_MS; a second tap on the same tooth in that time is a
+//   double-tap and cancels the single-tap action, so it can never overwrite it.
+let tapState = { tooth: null, timer: null, time: 0, single: null };
+
+function attachToothTap(b, n, opts) {
+  let start = null;
+  b.addEventListener("pointerdown", function (e) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    start = { x: e.clientX, y: e.clientY, t: Date.now() };
+  });
+  b.addEventListener("pointermove", function (e) {
+    if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > TAP_MOVE_PX) start = null;
+  });
+  b.addEventListener("pointercancel", function () { start = null; });  // browser is scrolling/zooming
+  b.addEventListener("pointerleave", function (e) { if (e.pointerType === "mouse") start = null; });
+  b.addEventListener("pointerup", function (e) {
+    if (!start) return;
+    const longPress = Date.now() - start.t > 700;
+    start = null;
+    if (longPress) return;
+    e.preventDefault();
+    handleToothTap(n, opts);
+  });
+  // Clicks are handled above; block the extra synthetic click (and dblclick zoom)
+  b.addEventListener("click", function (e) { e.preventDefault(); });
+  b.addEventListener("dblclick", function (e) { e.preventDefault(); });
+  // Keyboard: Enter/Space opens the tooth's condition panel
+  b.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (opts.onKey) opts.onKey(n); }
+  });
+}
+
+function flushPendingTap() {
+  if (!tapState.timer) return;
+  clearTimeout(tapState.timer);
+  const fn = tapState.single, tooth = tapState.tooth;
+  tapState = { tooth: null, timer: null, time: 0, single: null };
+  fn(tooth);
+}
+
+function handleToothTap(n, opts) {
+  // Marking mode (a condition chosen above): act instantly, no double-tap wait
+  if (opts.instant && opts.instant()) { flushPendingTap(); opts.onTap(n); return; }
+
+  const now = Date.now();
+  if (tapState.timer && tapState.tooth === n && now - tapState.time <= TAP_DOUBLE_MS) {
+    clearTimeout(tapState.timer);                       // cancel the single-tap action
+    tapState = { tooth: null, timer: null, time: 0, single: null };
+    opts.onDouble(n);
+    return;
+  }
+  flushPendingTap();                                    // a different tooth: finish the last one now
+  tapState = {
+    tooth: n, time: now, single: opts.onTap,
+    timer: setTimeout(function () {
+      const fn = tapState.single, tooth = tapState.tooth;
+      tapState = { tooth: null, timer: null, time: 0, single: null };
+      fn(tooth);
+    }, TAP_DOUBLE_MS)
+  };
+  // Instant feedback while we wait to see if a 2nd tap comes
+  const btn = document.querySelector('#examMap [data-tooth="' + n + '"]');
+  if (btn) btn.classList.add("pending");
 }
 
 function hasAny(teeth, dentition) {
@@ -266,7 +385,7 @@ function renderRecord() {
 
   // Current tooth map = all visits combined, newest result wins
   const current = {};
-  visits.slice().reverse().forEach(function (v) { Object.assign(current, v.teeth || {}); });
+  visits.slice().reverse().forEach(function (v) { Object.assign(current, normalizeTeeth(v.teeth)); });
   const mapBox = document.getElementById("currentMap");
   mapBox.innerHTML = "";
   let shown = false;
@@ -343,10 +462,10 @@ function renderVisitList() {
       if (v.chief_complaint) item.appendChild(el("p", "muted", v.chief_complaint));
     }
 
-    // Teeth grouped by status (Sound teeth are not listed)
-    const teeth = v.teeth || {};
-    STATUSES.filter(function (st) { return st !== "Sound"; }).forEach(function (st) {
-      const nums = Object.keys(teeth).filter(function (n) { return teeth[n].status === st; }).sort();
+    // Teeth grouped by condition (a tooth with 2 conditions is listed under both)
+    const teeth = normalizeTeeth(v.teeth);
+    CONDITIONS.forEach(function (st) {
+      const nums = Object.keys(teeth).filter(function (n) { return teeth[n].conditions.includes(st); }).sort();
       if (!nums.length) return;
       item.appendChild(el("h5", "", st + " teeth (" + nums.length + ")"));
       const row = el("div", "teeth-row");
@@ -358,9 +477,15 @@ function renderVisitList() {
         row.appendChild(t);
       });
       item.appendChild(row);
-      nums.forEach(function (n) {
-        if (teeth[n].note) item.appendChild(el("p", "muted", "Tooth " + n + ": " + teeth[n].note));
-      });
+    });
+    const multi = Object.keys(teeth).filter(function (n) { return problemsOf(teeth[n]).length > 1; }).sort();
+    multi.forEach(function (n) {
+      item.appendChild(el("p", "muted", "Tooth " + n + ": " + teeth[n].conditions.join(" + ")));
+    });
+    const soundCount = Object.keys(teeth).filter(function (n) { return teeth[n].conditions[0] === "Sound"; }).length;
+    if (soundCount) item.appendChild(el("p", "muted", "Checked sound: " + soundCount + " teeth"));
+    Object.keys(teeth).sort().forEach(function (n) {
+      if (teeth[n].note) item.appendChild(el("p", "muted", "Note, tooth " + n + ": " + teeth[n].note));
     });
 
     if (v.exam_notes) {
@@ -380,8 +505,10 @@ function deleteVisit(id) {
 
 // ---------- visit entry form ----------
 function openVisitForm(visit) {
+  if (tapState.timer) clearTimeout(tapState.timer);   // drop any half-finished tap
+  tapState = { tooth: null, timer: null, time: 0, single: null };
   editingVisit = visit || null;
-  const teeth = JSON.parse(JSON.stringify((visit && visit.teeth) || {}));
+  const teeth = normalizeTeeth(JSON.parse(JSON.stringify((visit && visit.teeth) || {})));
   const chosen = new Set((visit && visit.symptoms) || []);
   const extra = Array.from(chosen).filter(function (x) { return !DEFAULT_SYMPTOMS.includes(x); });
 
@@ -390,7 +517,8 @@ function openVisitForm(visit) {
   if (hasAny(teeth, "Primary") && !hasAny(teeth, "Permanent")) dentition = "Primary";
   else if (!Object.keys(teeth).length && Number(currentStudent.age) > 0 && Number(currentStudent.age) < 6) dentition = "Primary";
 
-  form = { symptoms: chosen, extraSymptoms: extra, teeth: teeth, dentition: dentition, selected: null, brush: null };
+  form = { symptoms: chosen, extraSymptoms: extra, teeth: teeth, dentition: dentition,
+           selected: null, brush: null, changed: null };
 
   document.getElementById("visitTitle").textContent = visit ? "Edit Visit" : "Visit Entry";
   document.getElementById("visitName").textContent = recordSubtitle(currentStudent);
@@ -441,13 +569,13 @@ function renderExam() {
   document.getElementById("segPermanent").classList.toggle("on", form.dentition === "Permanent");
   document.getElementById("segPrimary").classList.toggle("on", form.dentition === "Primary");
 
-  // Status buttons ("brushes") with how many teeth have each status
+  // Optional "marking mode": choose a condition, then tap many teeth (adds/removes it)
   const chips = document.getElementById("statusChips");
   chips.innerHTML = "";
   STATUSES.forEach(function (st) {
     const c = el("button", "chip" + (form.brush === st ? " brush b-" + st : ""), st);
     c.type = "button";
-    const n = Object.values(form.teeth).filter(function (t) { return t.status === st; }).length;
+    const n = Object.values(form.teeth).filter(function (t) { return t.conditions.includes(st); }).length;
     if (n && st !== "Sound") c.appendChild(el("span", "cnt", "(" + n + ")"));
     c.addEventListener("click", function () {
       form.brush = form.brush === st ? null : st;
@@ -456,9 +584,11 @@ function renderExam() {
     chips.appendChild(c);
   });
 
-  document.getElementById("brushHint").textContent = form.brush
-    ? (form.brush === "Sound" ? "Tap teeth to clear them back to Sound." : "Tap every " + form.brush.toLowerCase() + " tooth.")
-    : "Pick a status above to start marking teeth.";
+  document.getElementById("brushHint").textContent = !form.brush
+    ? "Tap = Sound · Double-tap = Decayed · Tap a marked tooth to see or change its conditions."
+    : form.brush === "Sound"
+      ? "Marking mode: tap teeth to mark them Sound (clears other conditions). Tap “Sound” again to stop."
+      : "Marking mode: tap teeth to add " + form.brush + " (tap again to remove it). Tap “" + form.brush + "” again to stop.";
 
   const mapBox = document.getElementById("examMap");
   mapBox.innerHTML = "";
@@ -466,43 +596,106 @@ function renderExam() {
     rows: TEETH[form.dentition],
     selectable: true,
     selected: form.selected,
-    onSelect: tapTooth
+    changed: form.changed,
+    instant: function () { return Boolean(form.brush); },
+    onTap: tapTooth,
+    onDouble: doubleTapTooth,
+    onKey: function (n) { saveToothNote(); form.selected = n; form.changed = null; renderExam(); }
   }));
+  form.changed = null; // the "just changed" flash plays once
 
-  const panel = document.getElementById("toothPanel");
-  if (!form.selected) { panel.style.display = "none"; return; }
-  panel.style.display = "block";
-  document.getElementById("selTooth").textContent = form.selected;
-  document.getElementById("toothNote").value = (form.teeth[form.selected] || {}).note || "";
+  renderToothPanel();
 }
 
-// Tap a tooth: give it the chosen status, or undo if it already has it
+// ----- tooth condition edits (never mutually exclusive, except Sound) -----
+function addCondition(n, c) {
+  const i = toothInfo(form.teeth[n]) || { conditions: [], note: "" };
+  const list = c === "Sound" ? ["Sound"]
+             : i.conditions.filter(function (x) { return x !== "Sound"; }).concat([c]);
+  form.teeth[n] = toothInfo({ conditions: list, note: i.note });
+}
+function removeCondition(n, c) {
+  const i = toothInfo(form.teeth[n]);
+  if (!i) return;
+  const list = i.conditions.filter(function (x) { return x !== c; });
+  const next = toothInfo({ conditions: list, note: i.note });
+  if (next) form.teeth[n] = next; else delete form.teeth[n];
+}
+function clearTooth(n) { delete form.teeth[n]; }
+
+// Single tap: Sound for an unmarked tooth. A tooth that already has conditions is
+// only selected (so a stray tap can't wipe Decayed/Sealant etc.).
 function tapTooth(n) {
   saveToothNote();
   form.selected = n;
+  form.changed = n;
   if (form.brush) {
-    const t = form.teeth[n];
-    const note = t ? t.note : "";
-    if (form.brush === "Sound" || (t && t.status === form.brush)) {
-      if (note) form.teeth[n] = { status: "Sound", note: note };
-      else delete form.teeth[n];
-    } else {
-      form.teeth[n] = { status: form.brush, note: note || "" };
-    }
+    const has = (toothInfo(form.teeth[n]) || { conditions: [] }).conditions.includes(form.brush);
+    if (form.brush === "Sound") { if (has) clearTooth(n); else addCondition(n, "Sound"); }
+    else if (has) removeCondition(n, form.brush);
+    else addCondition(n, form.brush);
+  } else if (!problemsOf(toothInfo(form.teeth[n])).length) {
+    addCondition(n, "Sound");
   }
   renderExam();
+}
+
+// Double tap: add Decayed (keeps any other conditions, e.g. Sealant)
+function doubleTapTooth(n) {
+  saveToothNote();
+  form.selected = n;
+  form.changed = n;
+  addCondition(n, "Decayed");
+  renderExam();
+}
+
+// Panel to inspect / edit every condition of the selected tooth
+function renderToothPanel() {
+  const panel = document.getElementById("toothPanel");
+  const n = form.selected;
+  if (!n) { panel.style.display = "none"; return; }
+  panel.style.display = "block";
+  document.getElementById("selTooth").textContent = n;
+  document.getElementById("selTooth2").textContent = n;
+  const info = toothInfo(form.teeth[n]);
+
+  const have = document.getElementById("toothConds");
+  have.innerHTML = "";
+  if (!info) have.appendChild(el("span", "muted", "Not recorded yet"));
+  (info ? info.conditions : []).forEach(function (c) {
+    const chip = el("button", "chip cond-chip brush b-" + c, c + "  ✕");
+    chip.type = "button";
+    chip.title = "Remove " + c + " from tooth " + n;
+    chip.addEventListener("click", function () { removeCondition(n, c); form.changed = n; renderExam(); });
+    have.appendChild(chip);
+  });
+
+  const add = document.getElementById("toothAdd");
+  add.innerHTML = "";
+  STATUSES.forEach(function (c) {
+    if (info && info.conditions.includes(c)) return;
+    const chip = el("button", "chip", "+ " + c);
+    chip.type = "button";
+    chip.title = c === "Sound" ? "Mark healthy (removes the other conditions)" : "Add " + c + " to tooth " + n;
+    chip.addEventListener("click", function () { addCondition(n, c); form.changed = n; renderExam(); });
+    add.appendChild(chip);
+  });
+
+  document.getElementById("toothNote").value = info ? info.note : "";
+  document.getElementById("clearTooth").style.display = info ? "inline-block" : "none";
 }
 
 // Keep the note typed for the selected tooth
 function saveToothNote() {
   if (!form || !form.selected) return;
   const note = document.getElementById("toothNote").value.trim();
-  const t = form.teeth[form.selected];
-  if (t) t.note = note;
-  else if (note) form.teeth[form.selected] = { status: "Sound", note: note };
+  const i = toothInfo(form.teeth[form.selected]);
+  if (i) { i.note = note; form.teeth[form.selected] = i; }
+  else if (note) form.teeth[form.selected] = { conditions: ["Sound"], note: note };
 }
 
 function saveVisit() {
+  flushPendingTap();
   saveToothNote();
   const btn = document.getElementById("visitSave");
   const errBox = document.getElementById("visitError");
@@ -513,7 +706,7 @@ function saveVisit() {
     visit_date: document.getElementById("visitDate").value,
     symptoms: Array.from(form.symptoms),
     chief_complaint: document.getElementById("complaint").value,
-    teeth: form.teeth,
+    teeth: normalizeTeeth(form.teeth),
     exam_notes: document.getElementById("examNotes").value
   };
   const url = editingVisit ? VISITS_URL + "?id=" + editingVisit.id : VISITS_URL;
@@ -558,11 +751,15 @@ function leaveVisitForm() {
 document.getElementById("visitBack").addEventListener("click", leaveVisitForm);
 document.getElementById("visitCancel").addEventListener("click", leaveVisitForm);
 document.getElementById("visitSave").addEventListener("click", saveVisit);
+document.getElementById("clearTooth").addEventListener("click", function () {
+  if (!form || !form.selected) return;
+  clearTooth(form.selected); form.changed = form.selected; renderExam();
+});
 document.getElementById("segPermanent").addEventListener("click", function () {
-  saveToothNote(); form.dentition = "Permanent"; form.selected = null; renderExam();
+  flushPendingTap(); saveToothNote(); form.dentition = "Permanent"; form.selected = null; renderExam();
 });
 document.getElementById("segPrimary").addEventListener("click", function () {
-  saveToothNote(); form.dentition = "Primary"; form.selected = null; renderExam();
+  flushPendingTap(); saveToothNote(); form.dentition = "Primary"; form.selected = null; renderExam();
 });
 document.getElementById("toothNote").addEventListener("input", saveToothNote);
 document.getElementById("addSymptomOk").addEventListener("click", addSymptom);

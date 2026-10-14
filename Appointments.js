@@ -41,12 +41,28 @@ function longDate(v) {
   const d = new Date(iso + "T00:00:00Z");
   return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 }
-function waitingList() { return ap.list.filter(function (a) { return a.status === "Waiting"; }); }
+// Queue = students who arrived late (in order of arrival – they are here now),
+// then the scheduled students in student-code order (the server sends them sorted).
+function waitingList() {
+  const late = ap.list.filter(function (a) { return a.status === "Late Arrival"; })
+    .sort(function (a, b) { return new Date(a.arrived_at) - new Date(b.arrived_at) || a.id - b.id; });
+  const waiting = ap.list.filter(function (a) { return a.status === "Waiting"; });
+  return late.concat(waiting);
+}
 function currentAppt() { return waitingList()[0] || null; }
 function counts() {
-  const c = { total: ap.list.length, Completed: 0, Waiting: 0, Absent: 0 };
-  ap.list.forEach(function (a) { c[a.status]++; });
+  const c = { total: ap.list.length, Completed: 0, Waiting: 0, Absent: 0, "Late Arrival": 0, queue: 0, lateTotal: 0 };
+  ap.list.forEach(function (a) {
+    c[a.status]++;
+    if (a.was_absent && a.status !== "Absent") c.lateTotal++;
+  });
+  c.queue = c.Waiting + c["Late Arrival"];
   return c;
+}
+function fmtTime(v) {
+  if (!v) return "";
+  const d = new Date(v);
+  return isNaN(d) ? "" : d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 function studentById(id) {
   return students.find(function (s) { return s.id === id; }) || null;
@@ -121,9 +137,10 @@ function loadSession() {
       ap.grade = grade; ap.section = section; ap.date = date;
       ap.list = data.appointments || [];
       ap.loaded = true;
-      if (changed) { ap.shownCurrentId = null; ap.exam = null; ap.last = null; }
+      if (changed) { ap.shownCurrentId = null; ap.exam = null; ap.last = null; ab.filter = null; ab.picked = false; }
       if (!ap.list.length) apError("No students with a student code in " + grade + " – " + section + ".");
       renderSession();
+      loadAbsent();
     })
     .catch(function (err) { if (!handleAuthError(err)) apError(err.message); })
     .finally(function () { ap.busy = false; updateLoadButton(); });
@@ -149,7 +166,7 @@ function renderSession() {
   const stats = $("apStats");
   stats.innerHTML = "";
   [["Total students", c.total, "blue"], ["Completed", c.Completed, "green"],
-   ["Waiting", c.Waiting, "yellow"], ["Absent", c.Absent, "red"],
+   ["Waiting", c.queue, "yellow"], ["Absent", c.Absent, "red"],
    ["Attendance", c.Completed + "/" + c.total, "green"]].forEach(function (t) {
     const d = el("div", "ap-stat " + t[2]);
     d.appendChild(el("span", "", t[0]));
@@ -158,7 +175,8 @@ function renderSession() {
   });
   $("apBar").style.width = (c.total ? Math.round(processed / c.total * 100) : 0) + "%";
   $("apProgress").textContent = "Processed " + processed + " of " + c.total + " students" +
-    (c.Waiting ? " · " + c.Waiting + " still waiting" : " · all done");
+    (c.queue ? " · " + c.queue + " still waiting" : " · all done") +
+    (c["Late Arrival"] ? " · " + c["Late Arrival"] + " late arrival(s) in the queue" : "");
 
   renderLastAction();
   renderCurrent();
@@ -171,12 +189,20 @@ function renderLastAction() {
   const box = $("apLast");
   box.innerHTML = "";
   if (!ap.last) return;
+  if (ap.last.goto) {   // a late student from another section was restored
+    box.appendChild(el("span", "", ap.last.text));
+    const go = el("button", "mini-btn", "Open " + ap.last.goto.grade + " – " + ap.last.goto.section);
+    go.type = "button";
+    go.addEventListener("click", function () { openClass(ap.last.goto.grade, ap.last.goto.section); });
+    box.appendChild(go);
+    return;
+  }
   const a = ap.list.find(function (x) { return x.id === ap.last.id; });
   if (!a) { ap.last = null; return; }
   box.appendChild(el("span", "", ap.last.text));
-  if (a.status === "Absent") {
-    const undo = el("button", "mini-btn", "Undo absent"); undo.type = "button";
-    undo.addEventListener("click", function () { backToQueue(a); });
+  if (a.status === "Absent" && ap.last.canUndo) {
+    const undo = el("button", "mini-btn", "Undo absent (mistake)"); undo.type = "button";
+    undo.addEventListener("click", function () { undoAbsent(a); });
     box.appendChild(undo);
   }
 }
@@ -212,7 +238,9 @@ function renderCurrent(force) {
 
   const meta = el("div", "ap-meta");
   [["Grade", cur.grade], ["Section", cur.section], ["Date", longDate(cur.appointment_date)],
-   ["Status", "⏳ Waiting – now being seen"]].forEach(function (p) {
+   ["Status", cur.status === "Late Arrival"
+      ? "🕒 Late arrival – arrived " + fmtTime(cur.arrived_at) + " (marked absent " + fmtTime(cur.absent_at) + ")"
+      : "⏳ Waiting – now being seen"]].forEach(function (p) {
     const d = el("div");
     d.appendChild(el("span", "muted", p[0] + ": "));
     d.appendChild(el("b", "", p[1]));
@@ -287,17 +315,16 @@ function renderList() {
   const cur = currentAppt();
   ap.list.forEach(function (a) {
     const isCur = cur && cur.id === a.id;
-    const row = el("div", "ap-row s-" + a.status + (isCur ? " current" : ""));
+    const row = el("div", "ap-row s-" + a.status.replace(" ", "") + (isCur ? " current" : ""));
     row.appendChild(el("span", "code-badge " + (a.code_gender || "none"), apCode(a)));
     row.appendChild(el("span", "nm", a.name || "—"));
     const label = isCur ? "🔵 Current" :
-                  a.status === "Completed" ? "✓ Completed" :
-                  a.status === "Absent" ? "✗ ABSENT" : "⏳ Waiting";
+                  a.status === "Completed" ? (a.was_absent ? "✓ Completed (late)" : "✓ Completed") :
+                  a.status === "Absent" ? "✗ ABSENT" :
+                  a.status === "Late Arrival" ? "🕒 Late arrival" : "⏳ Waiting";
     row.appendChild(el("span", "st", label));
     if (a.status === "Absent") {
-      const back = el("button", "mini-btn", "Arrived late"); back.type = "button";
-      back.title = "Put this student back in the queue";
-      back.addEventListener("click", function (e) { e.stopPropagation(); backToQueue(a); });
+      const back = arrivedButton(a, "mini-btn");
       row.appendChild(back);
     }
     row.title = "Open " + (a.name || "student") + "'s personal record";
@@ -316,7 +343,7 @@ function renderSummary() {
   const isToday = ap.date === todayIso();
   const head = el("div", "card-head");
   head.appendChild(el("h3", "", (isToday ? "Today's" : longDate(ap.date) + " –") + " Dental Appointment Summary" +
-                                 (c.Waiting ? "" : " (final)")));
+                                 (c.queue ? "" : " (final)")));
   const print = el("button", "secondary", "Print summary"); print.type = "button";
   print.addEventListener("click", function () { window.print(); });
   head.appendChild(print);
@@ -325,7 +352,8 @@ function renderSummary() {
   box.appendChild(el("p", "", "Section: " + ap.grade + " – " + ap.section + " · " + longDate(ap.date)));
   const grid = el("div", "dmft");
   [["Students scheduled", c.total], ["Students present", c.Completed],
-   ["Students absent", c.Absent], ["Still waiting", c.Waiting]].forEach(function (p) {
+   ["Students absent", c.Absent], ["Still waiting", c.queue],
+   ["Late arrivals (came after being marked absent)", c.lateTotal]].forEach(function (p) {
     const d = el("div");
     d.appendChild(el("span", "muted", p[0] + ": "));
     d.appendChild(el("b", "", String(p[1])));
@@ -334,7 +362,7 @@ function renderSummary() {
   box.appendChild(grid);
   const score = el("p", "ap-score", "Attendance: " + c.Completed + "/" + c.total);
   box.appendChild(score);
-  if (c.Waiting) box.appendChild(el("p", "muted", "Not final yet – " + c.Waiting + " student(s) still waiting."));
+  if (c.queue) box.appendChild(el("p", "muted", "Not final yet – " + c.queue + " student(s) still waiting."));
 
   const absents = ap.list.filter(function (a) { return a.status === "Absent"; });
   if (absents.length) {
@@ -376,10 +404,13 @@ function finish(appt, status) {
       if (i >= 0) ap.list[i] = Object.assign({}, ap.list[i], data.appointment);
       ap.exam = null;
       const label = apCode(appt) + " " + (appt.name || "");
-      ap.last = { id: appt.id, text: status === "Absent" ? "✗ " + label + " marked ABSENT" : "✓ " + label + " completed – saved to their record" };
+      ap.last = { id: appt.id, canUndo: status === "Absent",
+                  text: status === "Absent" ? "✗ " + label + " marked ABSENT – listed under Absent Students"
+                                            : "✓ " + label + " completed – saved to their record" };
       showToast(status === "Absent" ? label + " marked absent" : label + " saved");
       ap.busy = false;
       renderSession();
+      loadAbsent();
       window.scrollTo({ top: 0, behavior: "smooth" });
     })
     .catch(function (err) {
@@ -387,28 +418,200 @@ function finish(appt, status) {
       if (handleAuthError(err)) return;
       errBox.textContent = "Could not save: " + err.message;
       setActionsDisabled(false);
-      if (err.status === 409) refreshSession(); // someone else already changed it
+      if (err.status === 409) { refreshSession(); loadAbsent(); } // someone else already changed it
     });
 }
 
-// Absent student arrived late (or absence was a mistake): put them back in the queue
-function backToQueue(appt) {
+// "Mark as Arrived" button (needs a 2nd tap to confirm, so it can't be pressed by accident)
+function arrivedButton(a, cls) {
+  const btn = el("button", cls, "Mark as Arrived"); btn.type = "button";
+  btn.title = "The student came late – put them back in the queue for treatment";
+  btn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (btn.dataset.confirm !== "1") {
+      btn.dataset.confirm = "1"; btn.textContent = "Tap again to confirm";
+      setTimeout(function () { btn.dataset.confirm = ""; btn.textContent = "Mark as Arrived"; }, 4000);
+      return;
+    }
+    markArrived(a, btn);
+  });
+  return btn;
+}
+
+// Absent -> Late Arrival. Same appointment (no duplicate); the absence stays in the history.
+function markArrived(appt, btn) {
+  if (ap.busy) return;
+  ap.busy = true;
+  if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
+  api(APPT_URL + "?id=" + appt.id, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: "Late Arrival" })
+  })
+    .then(function (data) {
+      ap.busy = false;
+      const sameClass = ap.loaded && appt.grade === ap.grade && appt.section === ap.section &&
+                        dateOnly(appt.appointment_date) === ap.date;
+      const label = apCode(appt) + " " + (appt.name || "");
+      if (sameClass) {
+        const i = ap.list.findIndex(function (a) { return a.id === appt.id; });
+        if (i >= 0) ap.list[i] = Object.assign({}, ap.list[i], data.appointment);
+        ap.last = { id: appt.id, text: "🕒 " + label + " arrived – moved to the front of the queue" };
+        renderSession();
+      } else {
+        ap.last = { goto: { grade: appt.grade, section: appt.section },
+                    text: "🕒 " + label + " arrived (" + appt.grade + " – " + appt.section + ")" };
+        if (ap.loaded) renderSession();
+      }
+      showToast(label + " marked as arrived");
+      return loadAbsent();
+    })
+    .catch(function (err) {
+      ap.busy = false;
+      if (handleAuthError(err)) return;
+      if (btn) { btn.disabled = false; btn.textContent = "Mark as Arrived"; btn.dataset.confirm = ""; }
+      // Nothing was saved: keep the student listed and say why
+      const msg = "Could not mark " + apCode(appt) + " as arrived – nothing was changed. " +
+                  (err.status ? err.message : "Check the internet connection and try again.");
+      if (err.status) { loadAbsent().then(function () { $("abError").textContent = msg; }); refreshSession(); }
+      else $("abError").textContent = msg;
+    });
+}
+
+// The dentist pressed Absent by mistake: back to Waiting, absence removed
+function undoAbsent(appt) {
   if (ap.busy) return;
   ap.busy = true;
   api(APPT_URL + "?id=" + appt.id, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status: "Waiting" })
+    body: JSON.stringify({ status: "Waiting", undo: true })
   })
     .then(function (data) {
       const i = ap.list.findIndex(function (a) { return a.id === appt.id; });
       if (i >= 0) ap.list[i] = Object.assign({}, ap.list[i], data.appointment);
       ap.last = null;
-      showToast(apCode(appt) + " is back in the queue");
+      showToast(apCode(appt) + " absence undone" + (data.appointment.status === "Late Arrival" ? " (back to late arrival)" : ""));
       ap.busy = false;
       renderSession();
+      loadAbsent();
     })
     .catch(function (err) { ap.busy = false; if (!handleAuthError(err)) apError(err.message); });
+}
+
+// Switch the pickers to another class and load it
+function openClass(grade, section) {
+  $("apGrade").value = grade;
+  fillApSections(true);
+  $("apSection").value = section;
+  updateLoadButton();
+  loadSession();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ---------- Absent Students container (by Grade and Section) ----------
+const ab = { list: [], filter: null, picked: false, date: "", loading: false };
+
+function classKey(a) { return a.grade + "|" + a.section; }
+
+function loadAbsent() {
+  const date = $("apDate").value;
+  if (!date || !token) return Promise.resolve();
+  ab.loading = true;
+  return api(APPT_URL + "?absent=1&date=" + encodeURIComponent(date))
+    .then(function (data) {
+      ab.list = data.appointments || [];
+      ab.date = date;
+      $("abError").textContent = "";
+      renderAbsent();
+    })
+    .catch(function (err) {
+      if (handleAuthError(err)) return;
+      $("abError").textContent = "Could not load absent students: " + err.message;
+    })
+    .finally(function () { ab.loading = false; });
+}
+
+function renderAbsent() {
+  $("abDate").textContent = longDate(ab.date);
+  $("abTotal").textContent = String(ab.list.length);
+  $("abTotal").className = "ab-total" + (ab.list.length ? " has" : "");
+
+  // Grade + Section groups, sorted like everywhere else (Kinder, Grade 1, 2 ... / Section A, B ...)
+  const groups = new Map();
+  ab.list.forEach(function (a) {
+    const k = classKey(a);
+    if (!groups.has(k)) groups.set(k, { grade: a.grade, section: a.section, items: [] });
+    groups.get(k).items.push(a);
+  });
+  const ordered = Array.from(groups.values()).sort(function (x, y) {
+    return compareGrades(x.grade, y.grade) || compareSections(x.section, y.section);
+  });
+  ordered.forEach(function (g) { g.items.sort(compareCodes); }); // M-1, M-2 ... M-10, then F-1 ...
+
+  // Default filter: follow the class being worked on (if it has absences), otherwise All –
+  // until the dentist picks a filter themselves
+  if (ab.filter && ab.filter !== "all" && !groups.has(ab.filter)) { ab.filter = null; ab.picked = false; }
+  if (!ab.picked) {
+    const mine = ap.loaded ? ap.grade + "|" + ap.section : null;
+    ab.filter = mine && groups.has(mine) ? mine : "all";
+  }
+
+  // Filter chips with a count per Grade + Section
+  const chips = $("abFilters");
+  chips.innerHTML = "";
+  const addChip = function (key, text, n) {
+    const c = el("button", "chip" + (ab.filter === key ? " on" : ""), text);
+    c.type = "button";
+    c.appendChild(el("span", "cnt", "(" + n + ")"));
+    c.addEventListener("click", function () { ab.filter = key; ab.picked = true; renderAbsent(); });
+    chips.appendChild(c);
+  };
+  addChip("all", "All sections", ab.list.length);
+  ordered.forEach(function (g) { addChip(classKey(g), g.grade + " – " + g.section, g.items.length); });
+
+  // Search by student code (e.g. "M-15", "m15", "15") or name
+  const q = $("abSearch").value.trim().toLowerCase();
+  const qCode = q.replace(/[\s-]/g, "");
+  const match = function (a) {
+    if (!q) return true;
+    const code = apCode(a).toLowerCase().replace("-", "");
+    return code === qCode || (/^\d+$/.test(qCode) && String(a.code_number) === String(parseInt(qCode, 10))) ||
+           String(a.name || "").toLowerCase().includes(q);
+  };
+
+  const box = $("abList");
+  box.innerHTML = "";
+  let shown = 0;
+  ordered.forEach(function (g) {
+    if (ab.filter !== "all" && ab.filter !== classKey(g)) return;
+    const items = g.items.filter(match);
+    if (!items.length) return;
+    shown += items.length;
+    const sec = el("div", "ab-group");
+    const head = el("div", "ab-group-head");
+    head.appendChild(el("b", "", g.grade + " – " + g.section));
+    head.appendChild(el("span", "muted", items.length + " absent"));
+    sec.appendChild(head);
+    items.forEach(function (a) {
+      const row = el("div", "ab-row");
+      row.appendChild(el("span", "code-badge " + (a.code_gender || "none"), apCode(a)));
+      const info = el("div", "ab-info");
+      info.appendChild(el("b", "", a.name || "—"));
+      info.appendChild(el("span", "muted", g.grade + " – " + g.section + " · Appointment " +
+        longDate(a.appointment_date) + (a.absent_at ? " · marked absent " + fmtTime(a.absent_at) : "")));
+      row.appendChild(info);
+      row.appendChild(el("span", "ab-status", "✗ ABSENT"));
+      row.appendChild(arrivedButton(a, "ab-arrive"));
+      sec.appendChild(row);
+    });
+    box.appendChild(sec);
+  });
+  if (!shown) {
+    box.appendChild(el("p", "muted", ab.list.length
+      ? "No absent student matches your search."
+      : "No students are marked absent on this date. 🎉"));
+  }
 }
 
 // Optional full tooth-map exam for the current student, then come back here
@@ -438,23 +641,36 @@ function loadApptHistory() {
       if (!currentStudent || currentStudent.id !== s.id) return;
       const list = data.appointments || [];
       box.innerHTML = "";
-      const absences = list.filter(function (a) { return a.status === "Absent"; }).length;
+      const absences = list.filter(function (a) { return a.was_absent || a.status === "Absent"; }).length;
       count.textContent = list.length
         ? list.length + " appointment" + (list.length === 1 ? "" : "s") + " · " +
           absences + " absence" + (absences === 1 ? "" : "s")
         : "";
       if (!list.length) { box.appendChild(el("p", "muted", "No appointments yet.")); return; }
       list.forEach(function (a) {
-        const item = el("div", "ap-hist" + (a.status === "Absent" ? " absent" : a.status === "Waiting" ? " waiting" : ""));
+        const item = el("div", "ap-hist" + (a.status === "Absent" ? " absent" :
+                         (a.status === "Waiting" || a.status === "Late Arrival") ? " waiting" : ""));
         const line = function (label, value) {
           const p = el("p"); p.appendChild(el("b", "", label + ": ")); p.appendChild(document.createTextNode(value)); item.appendChild(p);
         };
         line("Date", longDate(a.appointment_date) + (a.extra ? " (extra appointment)" : ""));
         line("Class", a.grade + " – " + a.section);
-        line("Status", a.status === "Completed" ? "Present" : a.status === "Absent" ? "ABSENT" : "Waiting (not seen yet)");
+        line("Status", a.status === "Completed" ? (a.was_absent ? "Present (late arrival)" : "Present")
+                     : a.status === "Absent" ? "ABSENT"
+                     : a.status === "Late Arrival" ? "Late arrival – waiting for treatment"
+                     : "Waiting (not seen yet)");
+        if (a.was_absent) {
+          line("Attendance", "Marked absent" + (a.absent_at ? " at " + fmtTime(a.absent_at) : "") +
+               (a.arrived_at ? " · arrived at " + fmtTime(a.arrived_at) : " · did not arrive"));
+        }
         if (a.status === "Completed") line("Result", a.result || "Completed");
         if (a.notes) line("Dentist notes", a.notes);
         if (a.visit_id) line("Exam", "Tooth-map exam recorded (see Visit History)");
+        if (a.events && a.events.length) {
+          line("Status log", a.events.map(function (e) {
+            return fmtTime(e.at) + " " + (e.from || "—") + " → " + e.to + (e.by ? " (" + e.by + ")" : "");
+          }).join(" · "));
+        }
         box.appendChild(item);
       });
     })
@@ -493,17 +709,22 @@ function openAppointments() {
   fillApGrades();
   show("appointments");
   if (ap.loaded) refreshSession();
+  loadAbsent();
 }
 
 $("openApptBtn").addEventListener("click", openAppointments);
 $("apBack").addEventListener("click", function () { show("dashboard"); });
 $("apGrade").addEventListener("change", function () { fillApSections(true); });
 $("apSection").addEventListener("change", updateLoadButton);
-$("apDate").addEventListener("change", updateLoadButton);
+$("apDate").addEventListener("change", function () { updateLoadButton(); ab.filter = null; ab.picked = false; loadAbsent(); });
+$("abSearch").addEventListener("input", renderAbsent);
 $("apLoad").addEventListener("click", loadSession);
 $("extraApptBtn").addEventListener("click", addExtraAppointment);
 
 // Keep the screen in sync (e.g. a second device), without touching typed notes
 setInterval(function () {
-  if (token && !document.hidden && $("appointments").style.display === "block") refreshSession();
+  if (token && !document.hidden && $("appointments").style.display === "block") {
+    refreshSession();
+    if (!ab.loading) loadAbsent();
+  }
 }, 20000);

@@ -269,6 +269,58 @@
       .ap-summary { position: absolute; left: 0; top: 0; width: 100%; border: none; }
       .ap-summary button { display: none; }
     }
+
+    /* ===== Tooth map: touch + multiple conditions ===== */
+    .tooth {
+      position: relative; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent; transition: transform .08s, box-shadow .15s;
+    }
+    .tooth .num { pointer-events: none; }
+    .tooth small { pointer-events: none; }
+    .tooth.s-Sound { background: #eaf7ee; border-color: #43b97f; color: #1d6b4f; }
+    .tooth.multi { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.55); }
+    .tooth .count-dot {
+      position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; border-radius: 9px;
+      background: #111; color: #fff; font-size: 11px; line-height: 18px; text-shadow: none; pointer-events: none;
+    }
+    .tooth.pending { transform: scale(.9); box-shadow: 0 0 0 3px #2f6fd0; }
+    .tooth.changed { animation: toothFlash .45s ease-out; }
+    @keyframes toothFlash { 0% { box-shadow: 0 0 0 0 rgba(47,111,208,.8); } 100% { box-shadow: 0 0 0 10px rgba(47,111,208,0); } }
+    .tp-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 14px 0 0; font-size: 17px; }
+    .cond-chip { color: #fff; border-color: transparent; }
+    #toothPanel { border: 2px solid #e3e8e6; border-radius: 10px; padding: 4px 14px 14px; margin-top: 10px; background: #fbfdfc; }
+    @media (max-width: 600px) {
+      .tooth { width: 50px; height: 54px; }   /* still a big touch target (>= 48px) */
+      .teeth-scroll { -webkit-overflow-scrolling: touch; }
+      #toothPanel .chip { height: 44px; }
+    }
+
+    /* ===== Absent Students container ===== */
+    .ab-card { border: 2px solid #f2a39b; }
+    .ab-total {
+      display: inline-block; min-width: 26px; padding: 2px 8px; margin-left: 6px; border-radius: 13px;
+      background: #e5e7eb; color: #555; font-size: 15px; text-align: center; vertical-align: middle;
+    }
+    .ab-total.has { background: #d93025; color: #fff; }
+    .ab-group { margin-top: 12px; }
+    .ab-group-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 2px; border-bottom: 2px solid #f2a39b; }
+    .ab-row {
+      display: flex; align-items: center; gap: 10px; padding: 10px; margin-top: 6px; border-radius: 8px;
+      background: #fbd5d1; border: 1px solid #d93025;
+    }
+    .ab-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .ab-info b { color: #8c1d18; }
+    .ab-info .muted { font-size: 13px; }
+    .ab-status { font-weight: 700; color: #b3261e; font-size: 14px; white-space: nowrap; }
+    .ab-arrive { background: #2e9e5b; height: 42px; padding: 0 14px; white-space: nowrap; }
+    .ab-arrive:hover { background: #24804a; }
+    .ap-row.s-LateArrival { background: #efe7fb; border-color: #8e5bd6; }
+    .ap-row.s-LateArrival .st { color: #6a3fb0; }
+    @media (max-width: 600px) {
+      .ab-row { flex-wrap: wrap; }
+      .ab-status { order: 3; }
+      .ab-arrive { order: 4; flex: 1; height: 46px; }
+    }
   </style>
 </head>
 <body>
@@ -337,6 +389,21 @@
           </div>
         </div>
         <p class="error" id="apError"></p>
+      </div>
+
+      <!-- Absent Students: everyone marked absent on the chosen date, by Grade and Section -->
+      <div class="card ab-card">
+        <div class="card-head">
+          <h3>&#128308; Absent Students <span class="ab-total" id="abTotal">0</span></h3>
+          <span class="muted" id="abDate"></span>
+        </div>
+        <p class="muted" style="margin:0 0 10px">If an absent student arrives late, find them here and tap
+          <b>Mark as Arrived</b>. They go to the front of their section&rsquo;s queue &mdash; same appointment,
+          and the absence stays in their history.</p>
+        <div class="chips" id="abFilters" style="margin-bottom:10px"></div>
+        <input type="search" class="box" id="abSearch" placeholder="Search by student code (e.g. M-15) or name" autocomplete="off">
+        <p class="error" id="abError"></p>
+        <div id="abList"></div>
       </div>
 
       <div id="apSession" style="display:none">
@@ -472,7 +539,7 @@
 
       <div class="card">
         <h3>Examination</h3>
-        <p class="muted" style="margin:0 0 6px"><b>1.</b> Pick a status &nbsp; <b>2.</b> Tap every tooth that has it. Tap a tooth again to undo.</p>
+        <p class="muted" style="margin:0 0 6px">A tooth can have <b>several conditions</b>. To mark many teeth with the same condition, pick it below first.</p>
         <span class="small-label">Tooth map</span>
         <div class="seg">
           <button type="button" id="segPermanent" class="on">Permanent</button>
@@ -483,7 +550,15 @@
         <div class="teeth-scroll" id="examMap"></div>
 
         <div id="toothPanel" style="display:none">
-          <span class="small-label">Note for tooth <span id="selTooth"></span> (optional)</span>
+          <div class="tp-head">
+            <b>Tooth <span id="selTooth"></span></b>
+            <button type="button" class="mini-btn danger" id="clearTooth">Clear this tooth</button>
+          </div>
+          <span class="small-label">Conditions on this tooth (tap ✕ to remove one)</span>
+          <div class="chips" id="toothConds"></div>
+          <span class="small-label">Add a condition</span>
+          <div class="chips" id="toothAdd"></div>
+          <span class="small-label">Note for tooth <span id="selTooth2"></span> (optional)</span>
           <input type="text" class="box" id="toothNote" placeholder="Optional...">
         </div>
 
