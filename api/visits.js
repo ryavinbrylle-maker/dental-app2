@@ -22,25 +22,47 @@ function cleanText(v, max) {
   return s === "" ? null : s;
 }
 
+// Each tooth can have SEVERAL conditions at once, e.g.
+//   { "28": { "conditions": ["Decayed", "Sealant"], "note": "" } }
+// "Sound" means "checked and healthy", so it can't be combined with a problem.
+// Old records ({ "status": "Decayed" }) are still accepted and converted.
+// Returns { teeth } or { error }.
 function cleanTeeth(teeth) {
   const out = {};
-  if (!teeth || typeof teeth !== "object") return out;
-  Object.keys(teeth).forEach(function (k) {
+  if (teeth === undefined || teeth === null) return { teeth: out };
+  if (typeof teeth !== "object" || Array.isArray(teeth)) return { error: "Tooth map data is invalid." };
+  const keys = Object.keys(teeth);
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
     const t = teeth[k] || {};
-    if (VALID_TEETH.has(k) && STATUSES.includes(t.status)) {
-      out[k] = { status: t.status, note: cleanText(t.note, 200) || "" };
-    }
+    if (!VALID_TEETH.has(k)) return { error: "Unknown tooth number: " + k };
+    let list = Array.isArray(t.conditions) ? t.conditions : (t.status ? [t.status] : []);
+    const bad = list.filter(function (c) { return !STATUSES.includes(c); });
+    if (bad.length) return { error: "Unknown condition on tooth " + k + ": " + bad.join(", ") };
+    list = STATUSES.filter(function (c) { return list.includes(c); }); // no duplicates, fixed order
+    if (list.length > 1) list = list.filter(function (c) { return c !== "Sound"; });
+    const note = cleanText(t.note, 200) || "";
+    if (!list.length && note) list = ["Sound"];
+    if (list.length) out[k] = { conditions: list, note: note };
+  }
+  return { teeth: out };
+}
+
+// DMFT counts each tooth once (WHO rule): Missing > Decayed > Filled
+function dmft(teeth) {
+  const c = { d: 0, m: 0, f: 0 };
+  Object.values(teeth).forEach(function (t) {
+    const l = t.conditions;
+    if (l.includes("Missing")) c.m++;
+    else if (l.includes("Decayed")) c.d++;
+    else if (l.includes("Filled")) c.f++;
   });
-  return out;
+  return c;
 }
 
 function cleanSymptoms(list) {
   if (!Array.isArray(list)) return [];
   return list.map(function (s) { return cleanText(s, 40); }).filter(Boolean).slice(0, 20);
-}
-
-function count(teeth, status) {
-  return Object.values(teeth).filter(function (t) { return t.status === status; }).length;
 }
 
 function validDate(v) {
@@ -68,12 +90,15 @@ export default async function handler(req, res) {
 
     if (req.method === "POST" || req.method === "PUT") {
       const b = req.body || {};
-      const teeth = cleanTeeth(b.teeth);
+      const cleaned = cleanTeeth(b.teeth);
+      if (cleaned.error) return res.status(400).json({ error: cleaned.error });
+      const teeth = cleaned.teeth;
       const date = validDate(b.visit_date) || new Date().toISOString().slice(0, 10);
       const symptoms = cleanSymptoms(b.symptoms);
       const complaint = cleanText(b.chief_complaint, 2000);
       const notes = cleanText(b.exam_notes, 4000);
-      const d = count(teeth, "Decayed"), m = count(teeth, "Missing"), f = count(teeth, "Filled");
+      const counts = dmft(teeth);
+      const d = counts.d, m = counts.m, f = counts.f;
 
       if (req.method === "POST") {
         const studentId = parseInt(b.student_id, 10);
