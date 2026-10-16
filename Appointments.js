@@ -83,7 +83,9 @@ function placedStudents() { return students.filter(hasPlace); }
 function fillApGrades() {
   const sel = $("apGrade");
   const keep = sel.value || ap.grade;
-  const grades = Array.from(new Set(placedStudents().map(function (s) { return s.grade; }))).sort(compareGrades);
+  // the school's grades (SchoolClasses.js) that have students with a code
+  const have = new Set(placedStudents().map(function (s) { return s.grade; }));
+  const grades = GRADE_LIST.filter(function (g) { return have.has(g); });
   sel.innerHTML = "";
   const first = el("option", "", grades.length ? "Choose grade" : "No students with a code yet");
   first.value = ""; first.disabled = true; first.selected = true; sel.appendChild(first);
