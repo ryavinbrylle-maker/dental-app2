@@ -146,7 +146,7 @@
 
   <form id="regForm">
 
-    <p class="note">Required: student name, grade, section and student code. Fill in the rest if you know it &mdash; it can be completed later.</p>
+    <p class="note">Required: student name, grade, section / strand and student code. Fill in the rest if you know it &mdash; it can be completed later.</p>
 
     <!-- ===== STUDENT INFORMATION ===== -->
     <h2>Student Information</h2>
@@ -204,71 +204,6 @@
       </div>
     </div>
 
-    <div class="row">
-      <div class="field">
-        <label for="bloodType">Blood type</label>
-        <select id="bloodType">
-          <option value="" disabled selected>Choose type</option>
-          <option>A+</option><option>A-</option>
-          <option>B+</option><option>B-</option>
-          <option>AB+</option><option>AB-</option>
-          <option>O+</option><option>O-</option>
-          <option>Unknown</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="field">
-        <label for="height">Height (cm)</label>
-        <input type="number" id="height" placeholder="e.g 120" min="50" max="220">
-      </div>
-      <div class="field">
-        <label for="weight">Weight (kg)</label>
-        <input type="number" id="weight" placeholder="e.g 25" min="5" max="150" step="0.1">
-      </div>
-    </div>
-
-    <div class="field">
-      <label for="address">Address</label>
-      <input type="text" id="address" placeholder="e.g Looc, Jagna">
-    </div>
-
-    <!-- ===== PARENT / GUARDIAN ===== -->
-    <h2>Parent / Guardian</h2>
-
-    <div class="field">
-      <label for="parentName">Parent / guardian name</label>
-      <input type="text" id="parentName" placeholder="e.g Maria Prince">
-    </div>
-
-    <div class="row">
-      <div class="field">
-        <label for="relationship">Relationship</label>
-        <select id="relationship">
-          <option value="" disabled selected>Choose</option>
-          <option>Mother</option>
-          <option>Father</option>
-          <option>Guardian</option>
-          <option>Grandparent</option>
-          <option>Other</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="contact">Contact number</label>
-        <input type="tel" id="contact" placeholder="e.g 09xxxxxxxxx"
-               pattern="09[0-9]{9}" maxlength="11"
-               title="11-digit number starting with 09">
-      </div>
-    </div>
-
-    <div class="field">
-      <label for="emergencyContact">Emergency contact (other person)</label>
-      <input type="tel" id="emergencyContact" placeholder="e.g 09xxxxxxxxx"
-             pattern="09[0-9]{9}" maxlength="11"
-             title="11-digit number starting with 09">
-    </div>
-
     <!-- ===== MEDICAL INFORMATION ===== -->
     <h2>Medical Information</h2>
 
@@ -297,43 +232,6 @@
     <div class="field">
       <label for="medications">Current medications</label>
       <input type="text" id="medications" placeholder="e.g none">
-    </div>
-
-    <!-- ===== DENTAL HISTORY ===== -->
-    <h2>Dental History</h2>
-
-    <div class="row">
-      <div class="field">
-        <label for="lastVisit">Last dental visit</label>
-        <input type="date" id="lastVisit">
-      </div>
-      <div class="field">
-        <label for="brushing">Brushing per day</label>
-        <select id="brushing">
-          <option value="" disabled selected>Choose</option>
-          <option>None</option>
-          <option>1 time</option>
-          <option>2 times</option>
-          <option>3 or more</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="field">
-      <span class="group-label">Current dental concerns</span>
-      <div class="checks" id="dentalConcerns">
-        <label><input type="checkbox" value="Toothache"> Toothache</label>
-        <label><input type="checkbox" value="Cavities"> Cavities</label>
-        <label><input type="checkbox" value="Bleeding gums"> Bleeding gums</label>
-        <label><input type="checkbox" value="Loose tooth"> Loose tooth</label>
-        <label><input type="checkbox" value="Sensitive teeth"> Sensitive teeth</label>
-        <label><input type="checkbox" value="Bad breath"> Bad breath</label>
-      </div>
-    </div>
-
-    <div class="field">
-      <label for="dentalNotes">Notes</label>
-      <textarea id="dentalNotes" rows="3" placeholder="e.g Had tooth extraction last year"></textarea>
     </div>
 
     <!-- ===== CONSENT ===== -->
