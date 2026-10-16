@@ -221,7 +221,6 @@ function renderSession() {
     (c["Late Arrival"] ? " · " + c["Late Arrival"] + " late arrival(s) in the queue" : "");
   renderLastAction();
   renderUpNext();
-  renderNext();
   renderList();
   renderSummary();
 }
@@ -284,8 +283,10 @@ function renderUpNext() {
   box.appendChild(start);
 }
 
+// "Next in queue" card was removed from the page; kept harmless in case it comes back
 function renderNext() {
   const ol = $("apNext");
+  if (!ol) return;
   ol.innerHTML = "";
   const next = waitingList().slice(1, 1 + NEXT_COUNT);
   if (!next.length) {

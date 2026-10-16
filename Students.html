@@ -220,6 +220,10 @@
       background: #f3f6f5; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-weight: 700;
     }
     .ap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+    .ap-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .ap-col > .card, .ap-listcard { margin: 0; }
+    .ap-listcard { min-width: 0; }
+    @media (min-width: 761px) { .ap-col { position: sticky; top: 12px; } }  /* next student stays in view */
     .ap-current { border: 3px solid #2f6fd0; }
     .ap-now { color: #2f6fd0; font-weight: 700; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
     .ap-who { display: flex; align-items: center; gap: 12px; margin: 8px 0 6px; }
@@ -516,19 +520,22 @@
         <p class="muted" id="apProgress" style="margin:6px 0 16px"></p>
         <div class="ap-last" id="apLast"></div>
 
+        <!-- left: next student + queue · right: section list (stacked on phones) -->
         <div class="ap-grid">
-          <div class="card ap-upnext" id="apCurrent"></div>
-          <div class="card">
-            <h3>Next in queue</h3>
-            <ol class="ap-next" id="apNext"></ol>
+          <div class="ap-col">
+            <div class="card ap-upnext" id="apCurrent"></div>
+            <div class="card">
+              <h3>Next in queue</h3>
+              <ol class="ap-next" id="apNext"></ol>
+            </div>
           </div>
-        </div>
-        <div class="card">
-          <div class="card-head">
-            <h3>Section list</h3>
-            <span class="muted">Tap a student to open their examination</span>
+          <div class="card ap-listcard">
+            <div class="card-head">
+              <h3>Section list</h3>
+              <span class="muted">Tap a student to open their examination</span>
+            </div>
+            <div id="apList"></div>
           </div>
-          <div id="apList"></div>
         </div>
 
         <div class="card ap-summary" id="apSummary"></div>
