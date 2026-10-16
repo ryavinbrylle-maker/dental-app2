@@ -1,5 +1,0 @@
-{
-  "redirects": [
-    { "source": "/", "destination": "/StudentReg.html", "permanent": false }
-  ]
-}
