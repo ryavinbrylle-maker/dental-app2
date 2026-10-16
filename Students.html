@@ -292,6 +292,9 @@
     @media (max-width: 600px) {
       .tooth { width: 50px; height: 54px; }   /* still a big touch target (>= 48px) */
       .teeth-scroll { -webkit-overflow-scrolling: touch; }
+      /* exam map on phones: 8 teeth per quadrant row fill the width, no sideways scrolling */
+      #examMap .teeth-row { width: 100%; gap: 4px; }
+      #examMap .tooth { flex: 1 1 0; width: auto; min-width: 0; height: 52px; padding: 0; }
       #toothPanel .chip { height: 44px; }
     }
 
@@ -321,12 +324,109 @@
       .ab-status { order: 3; }
       .ab-arrive { order: 4; flex: 1; height: 46px; }
     }
+
+    /* ===== Header: school year + sync status ===== */
+    .app-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .hdr-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .sy-badge { background: rgba(255,255,255,.85); color: #1f2a2e; border-radius: 14px; padding: 4px 12px; font-weight: 700; font-size: 14px; }
+    .sy-badge:empty { display: none; }
+    .sync-pill { height: 34px; border-radius: 17px; padding: 0 14px; font-size: 14px; background: #fff; color: #1f2a2e; border: 2px solid transparent; }
+    .sync-pill.ok { color: #1d6b4f; }
+    .sync-pill.pending { color: #8a6d00; border-color: #f0d77a; background: #fff7db; }
+    .sync-pill.offline { color: #555; border-color: #bbb; background: #f1f1f5; }
+    .sync-pill.bad { color: #fff; background: #d93025; }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 20; display: flex; align-items: flex-start; justify-content: center; padding: 30px 12px; overflow-y: auto; }
+    .modal[hidden] { display: none; }
+    .modal-box { background: #fff; border-radius: 12px; padding: 18px; width: 100%; max-width: 640px; }
+    .sync-actions { margin: 8px 0 12px; }
+    .sync-group { margin-top: 12px; }
+    .sync-group > b { display: block; color: var(--teal); border-bottom: 2px solid #e3e8e6; padding-bottom: 4px; }
+    .sync-op { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #eef1f0; flex-wrap: wrap; }
+    .sync-op .what { flex: 1; min-width: 180px; }
+    .sync-op .what small { display: block; color: var(--label); }
+    .sbadge { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 10px; padding: 2px 8px; white-space: nowrap; }
+    .sbadge.pending, .sbadge.syncing { background: #fff7db; color: #8a6d00; }
+    .sbadge.synced { background: #e3f1ec; color: #1d6b4f; }
+    .sbadge.failed, .sbadge.conflict { background: #fde8e6; color: #b3261e; }
+    .sbadge.local { background: #e6effa; color: #2f6fd0; }
+
+    /* ===== Returning-student check ===== */
+    .match-card { border: 2px solid #8e5bd6; }
+    .match-item { border-top: 1px solid #eee; padding: 10px 0; }
+    .match-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .match-cols > div { background: #f7f5fc; border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+    @media (max-width: 600px) { .match-cols { grid-template-columns: 1fr; } }
+
+    /* ===== Appointment list page ===== */
+    .ap-upnext { border: 3px solid #2f6fd0; }
+    .ap-upnext .start-btn { width: 100%; height: 56px; font-size: 18px; background: #2f6fd0; margin-top: 10px; }
+    .ap-row .go { color: var(--label); font-size: 22px; line-height: 1; }
+    .ap-row.flash { animation: rowFlash 1.6s ease-out; }
+    @keyframes rowFlash { 0% { box-shadow: 0 0 0 4px #2f6fd0; } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+    /* ===== Examination page ===== */
+    .ex-student .ap-meta { margin-bottom: 0; }
+    .ex-today { font-size: 14px; color: var(--label); font-weight: 500; }
+    .ex-actions { position: sticky; bottom: 0; background: #fff; padding: 10px 0; border-top: 1px solid #eee; z-index: 5; }
+    .ex-actions button { height: 52px; }
+    .prev-card { border: 2px dashed #9dbbe6; background: #f8fbff; }
+    .prev-item { border-left: 4px solid #9dbbe6; background: #fff; border-radius: 6px; padding: 10px 12px; margin-top: 10px; }
+    .prev-item h4 { margin: 0 0 4px; font-size: 15px; }
+    .prev-item p { margin: 3px 0; font-size: 14px; }
+    .prev-item.absent { border-left-color: #d93025; }
+
+    /* ===== New tooth issues ===== */
+    .tooth.s-RootFragment    { background: #8b5a2b; color: #fff; }
+    .tooth.s-Impacted        { background: #7c3aed; color: #fff; }
+    .tooth.s-Crowded         { background: #0e9fb3; color: #fff; }
+    .tooth.s-TemporaryFilled { background: #a5c8ff; color: #0b3a80; }
+    .chip.brush.b-RootFragment    { background: #8b5a2b; }
+    .chip.brush.b-Impacted        { background: #7c3aed; }
+    .chip.brush.b-Crowded         { background: #0e9fb3; }
+    .chip.brush.b-TemporaryFilled { background: #a5c8ff; color: #0b3a80; }
+
+    /* ===== Drag-to-mark on the tooth map ===== */
+    /* Up/down swipes still scroll the page; sideways slides mark teeth. After a double-tap the
+       page is locked (Dental.js) so the finger can go in any direction across both rows. */
+    #examMap, #examMap .tooth { touch-action: pan-y; }
+    #examMap.painting, #examMap.painting * { cursor: crosshair; }
+    .tooth.painted { outline: 3px solid #111; outline-offset: 1px; }
+    .quad-label { font-size: 12px; font-weight: 700; color: var(--label); text-transform: uppercase; margin: 6px 0 2px; }
+    .paint-hint { font-weight: 700; color: #2f6fd0; min-height: 1.2em; margin: 4px 0 0; }
+
+    /* ===== School years ===== */
+    .sy-year { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; border: 1px solid #e3e8e6; margin-top: 8px; flex-wrap: wrap; cursor: pointer; }
+    .sy-year.active { border: 2px solid var(--teal); background: #f3f9f8; }
+    .sy-year .counts { color: var(--label); font-size: 14px; }
+    .sy-start { border: 2px solid #f2a39b; }
+    .sy-student { padding: 9px 10px; border-top: 1px solid #eef1f0; cursor: pointer; }
+    .sy-student:hover { background: #f3f9f8; }
+    #syRecord .visit { border-top: 1px solid #e3e8e6; padding: 10px 0; }
   </style>
 </head>
 <body>
-  <header>
+  <header class="app-header">
     <h1>Registered Students</h1>
+    <div class="hdr-right">
+      <span class="sy-badge" id="syBadge" title="Active school year"></span>
+      <button type="button" class="sync-pill" id="syncStatus" title="Records saved on this device and upload status">…</button>
+    </div>
   </header>
+
+  <!-- StudentStorageInfo: upload status of records saved on this device -->
+  <div class="modal" id="syncPanel" hidden>
+    <div class="modal-box">
+      <div class="card-head">
+        <h3>Saved on this device</h3>
+        <button type="button" class="mini-btn" id="syncClose">Close</button>
+      </div>
+      <p class="muted" id="syncSummary"></p>
+      <div class="sync-actions">
+        <button type="button" id="syncNowBtn">Upload now</button>
+      </div>
+      <div id="syncList"></div>
+    </div>
+  </div>
 
   <main>
     <!-- Dentist login -->
@@ -348,12 +448,16 @@
           <option value="">All grades</option>
         </select>
         <button type="button" id="openApptBtn">&#128197; Appointments</button>
+        <button type="button" class="secondary" id="openSyBtn">&#128450; School Years</button>
         <button type="button" class="secondary" id="refreshBtn">Refresh</button>
         <button type="button" class="secondary" id="exportBtn">Download CSV</button>
         <button type="button" id="logoutBtn">Log out</button>
       </div>
       <p class="count"><span id="count"></span> <span class="live" id="live">&#9679; Live &ndash; updates automatically</span></p>
       <div class="toast" id="toast"></div>
+
+      <!-- Returning students waiting for confirmation (SchoolYearDentalRecords.js) -->
+      <div class="card match-card" id="matchBox" style="display:none"></div>
 
       <!-- Grade -> Section -> Students (built by Students.js) -->
       <div id="groups"></div>
@@ -413,17 +517,18 @@
         <div class="ap-last" id="apLast"></div>
 
         <div class="ap-grid">
-          <div>
-            <div class="card ap-current" id="apCurrent"></div>
-            <div class="card">
-              <h3>Next in queue</h3>
-              <ol class="ap-next" id="apNext"></ol>
-            </div>
-          </div>
+          <div class="card ap-upnext" id="apCurrent"></div>
           <div class="card">
-            <h3>Section list</h3>
-            <div id="apList"></div>
+            <h3>Next in queue</h3>
+            <ol class="ap-next" id="apNext"></ol>
           </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h3>Section list</h3>
+            <span class="muted">Tap a student to open their examination</span>
+          </div>
+          <div id="apList"></div>
         </div>
 
         <div class="card ap-summary" id="apSummary"></div>
@@ -510,36 +615,80 @@
       </div>
     </section>
 
-    <!-- ===== Visit entry (check-up form) ===== -->
+    <!-- ===== SchoolYearDentalRecords: archives of every school year ===== -->
+    <section id="schoolYears" class="view">
+      <div class="bar">
+        <button type="button" class="back" id="syBack" aria-label="Back">&lsaquo;</button>
+        <div>
+          <h2>School Years &amp; Dental Archives</h2>
+          <div class="sub" id="sySub"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>School years</h3>
+        <div id="syYears"></div>
+        <p class="error" id="syError"></p>
+      </div>
+      <div class="card" id="syArchiveCard" style="display:none">
+        <div class="card-head">
+          <h3 id="syArchiveTitle"></h3>
+          <input type="search" class="box" id="sySearch" placeholder="Search code or name" style="max-width:260px">
+        </div>
+        <div class="chips" id="syClassChips" style="margin-bottom:10px"></div>
+        <div id="syStudents"></div>
+      </div>
+      <div class="card" id="syRecordCard" style="display:none">
+        <div class="card-head">
+          <h3 id="syRecordTitle"></h3>
+          <button type="button" class="mini-btn" id="syRecordClose">Close</button>
+        </div>
+        <div id="syRecord"></div>
+      </div>
+      <div class="card sy-start">
+        <h3>Start a new school year</h3>
+        <p class="muted">Saves a frozen copy of every student&rsquo;s dental records for the current year, then starts an
+          <b>empty roster</b> for the new year. Nothing is deleted: old records stay in the archive above, and
+          returning students are linked to their history when they register again.</p>
+        <div class="edit-grid">
+          <div>
+            <span class="small-label">New school year</span>
+            <input type="text" class="box" id="syNewYear" placeholder="e.g. 2027-2028">
+          </div>
+          <div>
+            <span class="small-label">Type it again to confirm</span>
+            <input type="text" class="box" id="syConfirm" placeholder="same as left">
+          </div>
+        </div>
+        <p class="error" id="syStartError"></p>
+        <div class="save-row"><button type="button" class="btn-absent" id="syStartBtn">Start new school year</button></div>
+      </div>
+    </section>
+
+    <!-- ===== Dental examination (Record Tooth-Map Exam) ===== -->
     <section id="visitForm" class="view">
       <div class="bar">
         <button type="button" class="back" id="visitBack" aria-label="Back">&lsaquo;</button>
         <div>
-          <h2 id="visitTitle">Visit Entry</h2>
+          <h2 id="visitTitle">Dental Examination</h2>
           <div class="sub" id="visitName"></div>
         </div>
       </div>
 
-      <div class="card">
-        <span class="small-label" style="margin-top:0">Date</span>
-        <input type="date" class="box" id="visitDate">
-      </div>
+      <!-- Student + appointment (appointment mode) -->
+      <div class="card ex-student" id="exStudent"></div>
 
-      <div class="card">
-        <h3>Chief complaint</h3>
-        <span class="small-label">Symptoms (tap to select)</span>
-        <div class="chips" id="symptomChips"></div>
-        <div id="addSymptomRow" style="display:none; margin-top:10px; gap:8px;">
-          <input type="text" class="box" id="newSymptom" placeholder="New symptom, e.g. Bad breath" style="flex:1">
-          <button type="button" id="addSymptomOk">Add</button>
+      <!-- Previous dental records (read-only, separate from this examination) -->
+      <div class="card prev-card" id="prevCard">
+        <div class="card-head">
+          <h3>&#128193; Previous Dental Records</h3>
+          <span class="muted" id="prevCount"></span>
         </div>
-        <span class="small-label">Chief complaint (free text)</span>
-        <textarea class="box" id="complaint" placeholder="Free text..."></textarea>
+        <div id="prevRecords"></div>
       </div>
 
       <div class="card">
-        <h3>Examination</h3>
-        <p class="muted" style="margin:0 0 6px">A tooth can have <b>several conditions</b>. To mark many teeth with the same condition, pick it below first.</p>
+        <h3>Examination <span class="ex-today" id="exToday"></span></h3>
+        <p class="muted" style="margin:0 0 6px">Tap = Sound, double-tap = Decayed. <b>Keep your finger down and slide</b> across teeth to mark them all. A tooth can have several conditions &mdash; tap it to see or edit them.</p>
         <span class="small-label">Tooth map</span>
         <div class="seg">
           <button type="button" id="segPermanent" class="on">Permanent</button>
@@ -548,6 +697,7 @@
         <div class="chips" id="statusChips" style="margin:6px 0 12px"></div>
         <p class="hint" id="brushHint"></p>
         <div class="teeth-scroll" id="examMap"></div>
+        <p class="paint-hint" id="paintHint"></p>
 
         <div id="toothPanel" style="display:none">
           <div class="tp-head">
@@ -562,20 +712,30 @@
           <input type="text" class="box" id="toothNote" placeholder="Optional...">
         </div>
 
-        <span class="small-label">Examination notes</span>
-        <textarea class="box" id="examNotes" placeholder="Notes for this examination section..."></textarea>
+        <span class="small-label">Dentist notes</span>
+        <textarea class="box" id="examNotes" placeholder="Findings, treatment given, advice for parents..."></textarea>
       </div>
 
       <p class="error" id="visitError"></p>
-      <div class="save-row">
+      <p class="hint" id="visitSaved"></p>
+      <div class="save-row ex-actions">
         <button type="button" class="secondary" id="visitCancel">Cancel</button>
-        <button type="button" id="visitSave">Save visit</button>
+        <button type="button" class="btn-absent" id="visitAbsent" style="display:none">&#10007; Absent</button>
+        <button type="button" class="btn-complete" id="visitSave">Save examination</button>
       </div>
     </section>
   </main>
 
+  <script src="StudentStorageInfo.js"></script>
   <script src="Students.js"></script>
   <script src="Dental.js"></script>
   <script src="Appointments.js"></script>
+  <script src="SchoolYearDentalRecords.js"></script>
+  <script>
+    // Keep the app's files on this device so it opens without internet (sw.js)
+    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+      navigator.serviceWorker.register("sw.js").catch(function (e) { console.warn("Offline app files not available", e); });
+    }
+  </script>
 </body>
 </html>

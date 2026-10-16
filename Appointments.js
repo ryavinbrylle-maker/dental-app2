@@ -1,32 +1,27 @@
-// Dental appointment queue for the dentist.
-// Flow: pick Grade -> pick Section -> Load -> queue sorted by student code ->
-//       Complete (with result) or Absent -> next student moves up automatically.
-// Everything is saved to the database right away, so results and absences
-// stay in each student's personal record.
+// Dental appointments for the dentist.
+// LIST PAGE (this view): pick Grade -> Section -> Load. The class appears as a queue sorted by
+// student code. Tap a student (or "Start examination") to open the separate EXAMINATION PAGE
+// (Dental.js). Saving there returns here at the SAME scroll position, with the status updated.
 //
-// Uses from Students.js: token, students, readJson, showToast, studentCode,
-//   compareGrades, compareSections, hasPlace, text
-// Uses from Dental.js:   show, api, el, todayIso, openRecord, openVisitForm,
-//   currentStudent, visitReturnView, afterVisitSave, handleAuthError
+// Every change is saved on this device first (StudentStorageInfo.js) and uploaded in batches,
+// so the whole flow works without internet.
+//
+// Uses from Students.js: token, students, currentSchoolYear, readJson, showToast, studentCode,
+//   compareGrades, compareSections, compareCodes, hasPlace, text
+// Uses from Dental.js: show, api, el, todayIso, dateOnly, openRecord, openVisitForm,
+//   currentStudent, visitReturnView, afterVisitSave, examAbsentHandler, handleAuthError
 
 const APPT_URL = "/api/appointments";
-const RESULT_OPTIONS = [
-  "No major concerns",
-  "Needs follow-up",
-  "Treated today",
-  "Referred to a dentist/clinic",
-  "Other (see notes)"
-];
-const NEXT_COUNT = 4; // how many "next" students to show under the current one
+const NEXT_COUNT = 4; // how many "next" students to show
 
 const ap = {
   grade: "", section: "", date: "",
-  list: [],            // appointments for the loaded class + date (sorted by code)
+  list: [],           // appointments of the loaded class + date (from this device's storage)
   loaded: false,
   busy: false,
-  shownCurrentId: null, // which appointment the "current" card is showing
-  exam: null,          // { apptId, visitId } tooth-map exam attached to the current student
-  last: null           // last action, for Undo of an absence
+  last: null,         // last action (for "Undo absent")
+  listScroll: 0,      // scroll position of the list when an examination was opened
+  flashUid: null      // row to highlight when coming back
 };
 
 const $ = function (id) { return document.getElementById(id); };
@@ -41,11 +36,14 @@ function longDate(v) {
   const d = new Date(iso + "T00:00:00Z");
   return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 }
+function byCode(a, b) {
+  return compareCodes(a, b) || (a.extra ? 1 : 0) - (b.extra ? 1 : 0) || String(a.created_at || "").localeCompare(String(b.created_at || ""));
+}
 // Queue = students who arrived late (in order of arrival – they are here now),
-// then the scheduled students in student-code order (the server sends them sorted).
+// then the scheduled students in student-code order.
 function waitingList() {
   const late = ap.list.filter(function (a) { return a.status === "Late Arrival"; })
-    .sort(function (a, b) { return new Date(a.arrived_at) - new Date(b.arrived_at) || a.id - b.id; });
+    .sort(function (a, b) { return new Date(a.arrived_at) - new Date(b.arrived_at); });
   const waiting = ap.list.filter(function (a) { return a.status === "Waiting"; });
   return late.concat(waiting);
 }
@@ -67,7 +65,16 @@ function fmtTime(v) {
 function studentById(id) {
   return students.find(function (s) { return s.id === id; }) || null;
 }
+// The student behind an appointment (roster copy, or built from the appointment itself)
+function studentForAppt(a) {
+  return studentById(a.student_id) || {
+    id: a.student_id, name: a.name, grade: a.grade, section: a.section, code_gender: a.code_gender,
+    code_number: a.code_number, identity_id: a.identity_id, school_year: a.school_year,
+    allergies: a.allergies, conditions: a.conditions, other_conditions: a.other_conditions, medications: a.medications
+  };
+}
 function apError(msg) { $("apError").textContent = msg || ""; }
+function isNetworkError(err) { return !err.status; }
 
 // ---------- Grade / Section pickers ----------
 function placedStudents() { return students.filter(hasPlace); }
@@ -109,7 +116,6 @@ function fillApSections(reset) {
 function updateLoadButton() {
   const ready = $("apGrade").value && $("apSection").value && $("apDate").value;
   $("apLoad").disabled = !ready || ap.busy;
-  // If the pickers no longer match the loaded session, hide it until reloaded
   const same = ap.loaded && $("apGrade").value === ap.grade &&
                $("apSection").value === ap.section && $("apDate").value === ap.date;
   $("apSession").style.display = same ? "block" : "none";
@@ -120,6 +126,26 @@ function updateLoadButton() {
 }
 
 // ---------- load / refresh ----------
+// The list is always drawn from this device's storage (server copy + changes made here).
+function readClass() {
+  if (!ap.loaded) return Promise.resolve();
+  return StudentStorageInfo.getClassAppointments(ap.date, ap.grade, ap.section).then(function (list) {
+    ap.list = list.sort(byCode);
+  });
+}
+
+// Download the earlier dental history of the whole class, so previous records can be
+// reviewed offline on the examination page
+function prefetchHistory(grade, section) {
+  if (!navigator.onLine) return Promise.resolve();
+  return api("/api/history?grade=" + encodeURIComponent(grade) + "&section=" + encodeURIComponent(section))
+    .then(function (d) {
+      return Promise.all([StudentStorageInfo.cacheVisits(d.visits || []),
+                          StudentStorageInfo.cacheAppointments(d.appointments || [])]);
+    })
+    .catch(function (e) { if (!handleAuthError(e)) console.warn("history download failed", e); });
+}
+
 function loadSession() {
   const grade = $("apGrade").value, section = $("apSection").value, date = $("apDate").value;
   // Rule: no appointments without a Grade AND a Section
@@ -127,33 +153,51 @@ function loadSession() {
   if (!date) { apError("Please choose the appointment date."); return; }
   apError("");
   ap.busy = true; updateLoadButton();
-  api(APPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "schedule", grade: grade, section: section, date: date })
-  })
-    .then(function (data) {
-      const changed = grade !== ap.grade || section !== ap.section || date !== ap.date;
-      ap.grade = grade; ap.section = section; ap.date = date;
-      ap.list = data.appointments || [];
-      ap.loaded = true;
-      if (changed) { ap.shownCurrentId = null; ap.exam = null; ap.last = null; ab.filter = null; ab.picked = false; }
-      if (!ap.list.length) apError("No students with a student code in " + grade + " – " + section + ".");
-      renderSession();
-      loadAbsent();
-    })
-    .catch(function (err) { if (!handleAuthError(err)) apError(err.message); })
+  const changed = grade !== ap.grade || section !== ap.section || date !== ap.date;
+
+  const offlineSchedule = function () {
+    const roster = placedStudents().filter(function (s) { return s.grade === grade && s.section === section; });
+    return StudentStorageInfo.scheduleClass(roster, grade, section, date, currentSchoolYear).then(function () {
+      apError(navigator.onLine ? "" : "Offline: the class was scheduled on this device and will upload when online.");
+    });
+  };
+  const online = navigator.onLine
+    ? api(APPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "schedule", grade: grade, section: section, date: date })
+      }).then(function (data) {
+        prefetchHistory(grade, section);
+        return StudentStorageInfo.cacheAppointments(data.appointments || []);
+      }).catch(function (err) {
+        if (isNetworkError(err)) return offlineSchedule();     // no connection after all
+        throw err;
+      })
+    : offlineSchedule();
+
+  online.then(function () {
+    ap.grade = grade; ap.section = section; ap.date = date;
+    ap.loaded = true;
+    if (changed) { ap.last = null; ap.flashUid = null; ab.filter = null; ab.picked = false; }
+    return readClass();
+  }).then(function () {
+    if (!ap.list.length) apError("No students with a student code in " + grade + " – " + section + ".");
+    renderSession();
+    loadAbsent();
+  }).catch(function (err) { if (!handleAuthError(err)) apError(err.message); })
     .finally(function () { ap.busy = false; updateLoadButton(); });
 }
 
-// Quietly re-read the class list (keeps whatever the dentist is typing)
+// Re-read the class (server when online, then always from this device)
 function refreshSession() {
   if (!ap.loaded || ap.busy) return Promise.resolve();
   const q = "?grade=" + encodeURIComponent(ap.grade) + "&section=" + encodeURIComponent(ap.section) +
             "&date=" + encodeURIComponent(ap.date);
-  return api(APPT_URL + q)
-    .then(function (data) { ap.list = data.appointments || []; renderSession(); })
-    .catch(function (err) { handleAuthError(err); });
+  const fetchIt = navigator.onLine
+    ? api(APPT_URL + q).then(function (data) { return StudentStorageInfo.cacheAppointments(data.appointments || []); })
+        .catch(function (err) { handleAuthError(err); })
+    : Promise.resolve();
+  return fetchIt.then(readClass).then(renderSession);
 }
 
 // ---------- render ----------
@@ -161,8 +205,6 @@ function renderSession() {
   updateLoadButton();
   const c = counts();
   const processed = c.Completed + c.Absent;
-
-  // Stat tiles
   const stats = $("apStats");
   stats.innerHTML = "";
   [["Total students", c.total, "blue"], ["Completed", c.Completed, "green"],
@@ -177,9 +219,8 @@ function renderSession() {
   $("apProgress").textContent = "Processed " + processed + " of " + c.total + " students" +
     (c.queue ? " · " + c.queue + " still waiting" : " · all done") +
     (c["Late Arrival"] ? " · " + c["Late Arrival"] + " late arrival(s) in the queue" : "");
-
   renderLastAction();
-  renderCurrent();
+  renderUpNext();
   renderNext();
   renderList();
   renderSummary();
@@ -197,7 +238,7 @@ function renderLastAction() {
     box.appendChild(go);
     return;
   }
-  const a = ap.list.find(function (x) { return x.id === ap.last.id; });
+  const a = ap.list.find(function (x) { return x.uid === ap.last.uid; });
   if (!a) { ap.last = null; return; }
   box.appendChild(el("span", "", ap.last.text));
   if (a.status === "Absent" && ap.last.canUndo) {
@@ -207,19 +248,11 @@ function renderLastAction() {
   }
 }
 
-// Only rebuild the current-student card when the current student changes,
-// so the dentist's typed notes are never wiped by an automatic refresh.
-function renderCurrent(force) {
-  const cur = currentAppt();
-  const id = cur ? cur.id : "done";
-  if (!force && ap.shownCurrentId === id && $("apCurrent").childNodes.length) {
-    updateExamIndicator();
-    return;
-  }
-  ap.shownCurrentId = id;
+// The next student to examine, with a big Start button
+function renderUpNext() {
   const box = $("apCurrent");
   box.innerHTML = "";
-
+  const cur = currentAppt();
   if (!cur) {
     const done = el("div", "ap-done");
     done.appendChild(el("b", "", ap.list.length ? "✓ All students processed" : "No students to see"));
@@ -229,68 +262,26 @@ function renderCurrent(force) {
     box.appendChild(done);
     return;
   }
-
-  box.appendChild(el("div", "ap-now", "🔵 Current student"));
+  box.appendChild(el("div", "ap-now", "🔵 Next student"));
   const who = el("div", "ap-who");
   who.appendChild(el("span", "code-badge " + (cur.code_gender || "none"), apCode(cur)));
   who.appendChild(el("h3", "", cur.name || "—"));
   box.appendChild(who);
-
-  const meta = el("div", "ap-meta");
-  [["Grade", cur.grade], ["Section", cur.section], ["Date", longDate(cur.appointment_date)],
-   ["Status", cur.status === "Late Arrival"
-      ? "🕒 Late arrival – arrived " + fmtTime(cur.arrived_at) + " (marked absent " + fmtTime(cur.absent_at) + ")"
-      : "⏳ Waiting – now being seen"]].forEach(function (p) {
-    const d = el("div");
-    d.appendChild(el("span", "muted", p[0] + ": "));
-    d.appendChild(el("b", "", p[1]));
-    meta.appendChild(d);
-  });
-  box.appendChild(meta);
-  if (cur.extra) box.appendChild(el("p", "hint", "Extra appointment (2nd one today)"));
-
-  // Health alert so the dentist sees it before treatment
-  const medical = [].concat(cur.conditions || [], cur.other_conditions ? [cur.other_conditions] : []);
+  box.appendChild(el("p", "muted", cur.status === "Late Arrival"
+    ? "🕒 Late arrival – arrived " + fmtTime(cur.arrived_at)
+    : "⏳ Waiting" + (cur.extra ? " · extra appointment" : "")));
+  const s = studentForAppt(cur);
+  const medical = [].concat(s.conditions || [], s.other_conditions ? [s.other_conditions] : []);
   const alerts = [];
-  if (cur.allergies) alerts.push("Allergy: " + cur.allergies);
+  if (s.allergies) alerts.push("Allergy: " + s.allergies);
   if (medical.length) alerts.push("Medical: " + medical.join(", "));
-  if (cur.medications) alerts.push("Medication: " + cur.medications);
+  if (s.medications) alerts.push("Medication: " + s.medications);
   if (alerts.length) box.appendChild(el("div", "ap-alert", "⚠ " + alerts.join(" · ")));
-
-  box.appendChild(el("span", "small-label", "Appointment result"));
-  const sel = el("select", "box"); sel.id = "apResult";
-  const o0 = el("option", "", "Choose result"); o0.value = ""; o0.disabled = true; o0.selected = true; sel.appendChild(o0);
-  RESULT_OPTIONS.forEach(function (r) { const o = el("option", "", r); o.value = r; sel.appendChild(o); });
-  box.appendChild(sel);
-
-  box.appendChild(el("span", "small-label", "Dentist notes"));
-  const notes = el("textarea", "box"); notes.id = "apNotes";
-  notes.placeholder = "Findings, treatment given, advice for parents...";
-  box.appendChild(notes);
-
-  const exam = el("div", "ap-exam");
-  const examBtn = el("button", "secondary", "🦷 Record tooth-map exam (optional)"); examBtn.type = "button";
-  examBtn.addEventListener("click", function () { startExam(cur); });
-  exam.appendChild(examBtn);
-  exam.appendChild(el("span", "hint", "")).id = "apExamState";
-  box.appendChild(exam);
-  updateExamIndicator();
-
-  const actions = el("div", "ap-actions");
-  const done = el("button", "btn-complete", "✓ Complete appointment"); done.type = "button"; done.id = "apComplete";
-  done.addEventListener("click", function () { finish(cur, "Completed"); });
-  const absent = el("button", "btn-absent", "✗ Absent"); absent.type = "button"; absent.id = "apAbsent";
-  absent.addEventListener("click", function () { finish(cur, "Absent"); });
-  actions.appendChild(done); actions.appendChild(absent);
-  box.appendChild(actions);
-  box.appendChild(el("p", "error", "")).id = "apActionError";
-}
-
-function updateExamIndicator() {
-  const span = $("apExamState");
-  if (!span) return;
-  const cur = currentAppt();
-  span.textContent = cur && ap.exam && ap.exam.apptId === cur.id ? "✓ Exam recorded – it will be linked to this appointment" : "";
+  const start = el("button", "start-btn", "Start examination ▶");
+  start.type = "button";
+  start.id = "apStart";
+  start.addEventListener("click", function () { openExam(cur); });
+  box.appendChild(start);
 }
 
 function renderNext() {
@@ -314,24 +305,32 @@ function renderList() {
   box.innerHTML = "";
   const cur = currentAppt();
   ap.list.forEach(function (a) {
-    const isCur = cur && cur.id === a.id;
+    const isCur = cur && cur.uid === a.uid;
+    const inQueue = a.status === "Waiting" || a.status === "Late Arrival";
     const row = el("div", "ap-row s-" + a.status.replace(" ", "") + (isCur ? " current" : ""));
+    row.dataset.uid = a.uid;
     row.appendChild(el("span", "code-badge " + (a.code_gender || "none"), apCode(a)));
-    row.appendChild(el("span", "nm", a.name || "—"));
-    const label = isCur ? "🔵 Current" :
+    row.appendChild(el("span", "nm", (a.name || "—") + (a.extra ? " (extra)" : "")));
+    const label = isCur ? "🔵 Next" :
                   a.status === "Completed" ? (a.was_absent ? "✓ Completed (late)" : "✓ Completed") :
                   a.status === "Absent" ? "✗ ABSENT" :
                   a.status === "Late Arrival" ? "🕒 Late arrival" : "⏳ Waiting";
     row.appendChild(el("span", "st", label));
-    if (a.status === "Absent") {
-      const back = arrivedButton(a, "mini-btn");
-      row.appendChild(back);
+    const badge = syncBadge(a);
+    if (badge) { badge.textContent = a._sync === "pending" ? "⏳ on device" : badge.textContent; row.appendChild(badge); }
+    if (a.status === "Absent") row.appendChild(arrivedButton(a, "mini-btn"));
+    if (inQueue) {
+      row.appendChild(el("span", "go", "›"));
+      row.title = "Open the examination for " + (a.name || "this student");
+      row.addEventListener("click", function () { openExam(a); });
+    } else {
+      row.title = "Open " + (a.name || "student") + "'s personal record";
+      row.addEventListener("click", function () {
+        ap.listScroll = window.scrollY;
+        ap.flashUid = a.uid;
+        openRecord(studentForAppt(a), "appointments");
+      });
     }
-    row.title = "Open " + (a.name || "student") + "'s personal record";
-    row.addEventListener("click", function () {
-      const s = studentById(a.student_id);
-      if (s) openRecord(s, "appointments");
-    });
     box.appendChild(row);
   });
 }
@@ -348,7 +347,6 @@ function renderSummary() {
   print.addEventListener("click", function () { window.print(); });
   head.appendChild(print);
   box.appendChild(head);
-
   box.appendChild(el("p", "", "Section: " + ap.grade + " – " + ap.section + " · " + longDate(ap.date)));
   const grid = el("div", "dmft");
   [["Students scheduled", c.total], ["Students present", c.Completed],
@@ -360,10 +358,8 @@ function renderSummary() {
     grid.appendChild(d);
   });
   box.appendChild(grid);
-  const score = el("p", "ap-score", "Attendance: " + c.Completed + "/" + c.total);
-  box.appendChild(score);
+  box.appendChild(el("p", "ap-score", "Attendance: " + c.Completed + "/" + c.total));
   if (c.queue) box.appendChild(el("p", "muted", "Not final yet – " + c.queue + " student(s) still waiting."));
-
   const absents = ap.list.filter(function (a) { return a.status === "Absent"; });
   if (absents.length) {
     const list = el("div", "absent-list");
@@ -373,66 +369,73 @@ function renderSummary() {
   }
 }
 
-// ---------- actions ----------
-function setActionsDisabled(on) {
-  ["apComplete", "apAbsent"].forEach(function (id) { if ($(id)) $(id).disabled = on; });
+// ---------- the examination page (separate page, Dental.js) ----------
+function openExam(appt) {
+  if (appt.status !== "Waiting" && appt.status !== "Late Arrival") return;
+  ap.listScroll = window.scrollY;               // come back to exactly this spot
+  ap.flashUid = appt.uid;
+  currentStudent = studentForAppt(appt);
+  visitReturnView = "appointments";
+  afterVisitSave = function (visit, appointment) {
+    const label = apCode(appt) + " " + (appt.name || "");
+    ap.last = { uid: appt.uid, text: "✓ " + label + " completed – examination saved to their record" };
+    returnToList();
+  };
+  examAbsentHandler = function (a, notes) { markAbsent(a, notes, true); };
+  openVisitForm(null, { appointment: appt });
 }
 
-function finish(appt, status) {
-  if (ap.busy) return;
-  const errBox = $("apActionError");
-  errBox.textContent = "";
-  const result = $("apResult") ? $("apResult").value : "";
-  const notes = $("apNotes") ? $("apNotes").value.trim() : "";
-  if (status === "Completed" && !result) {
-    errBox.textContent = "Choose the appointment result first (or press Absent).";
-    $("apResult").focus();
-    return;
-  }
-  const body = { status: status, result: status === "Completed" ? result : null, notes: notes || null };
-  if (status === "Completed" && ap.exam && ap.exam.apptId === appt.id) body.visit_id = ap.exam.visitId;
+// Back to the list at the same scroll position, row highlighted, statuses updated
+function returnToList() {
+  show("appointments", true);
+  return readClass().then(function () {
+    renderSession();
+    loadAbsent();
+    requestAnimationFrame(function () {
+      window.scrollTo(0, ap.listScroll || 0);
+      const row = ap.flashUid ? document.querySelector('#apList .ap-row[data-uid="' + ap.flashUid + '"]') : null;
+      if (row) { row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
+    });
+  });
+}
 
-  ap.busy = true; setActionsDisabled(true);
-  api(APPT_URL + "?id=" + appt.id, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  })
-    .then(function (data) {
-      // Update the row in place -> the queue advances automatically
-      const i = ap.list.findIndex(function (a) { return a.id === appt.id; });
-      if (i >= 0) ap.list[i] = Object.assign({}, ap.list[i], data.appointment);
-      ap.exam = null;
+// ---------- status changes (saved on this device, then uploaded) ----------
+function markAbsent(appt, notes, fromExam) {
+  if (ap.busy) return;
+  ap.busy = true;
+  StudentStorageInfo.changeAppointment(appt, { status: "Absent", notes: notes || null }, { label: "Marked absent" })
+    .then(function () {
       const label = apCode(appt) + " " + (appt.name || "");
-      ap.last = { id: appt.id, canUndo: status === "Absent",
-                  text: status === "Absent" ? "✗ " + label + " marked ABSENT – listed under Absent Students"
-                                            : "✓ " + label + " completed – saved to their record" };
-      showToast(status === "Absent" ? label + " marked absent" : label + " saved");
-      ap.busy = false;
-      renderSession();
-      loadAbsent();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      ap.last = { uid: appt.uid, canUndo: true, text: "✗ " + label + " marked ABSENT – listed under Absent Students" };
+      showToast(label + " marked absent");
     })
-    .catch(function (err) {
+    .catch(function (err) { showToast(err.message); })
+    .finally(function () {
       ap.busy = false;
-      if (handleAuthError(err)) return;
-      errBox.textContent = "Could not save: " + err.message;
-      setActionsDisabled(false);
-      if (err.status === 409) { refreshSession(); loadAbsent(); } // someone else already changed it
+      if (fromExam) returnToList(); else readClass().then(function () { renderSession(); loadAbsent(); });
     });
 }
 
 // "Mark as Arrived" button (needs a 2nd tap to confirm, so it can't be pressed by accident)
+// The "tap again" state survives a redraw of the list (uploads finishing, auto refresh)
+let arrivedConfirm = { uid: null, until: 0 };
 function arrivedButton(a, cls) {
   const btn = el("button", cls, "Mark as Arrived"); btn.type = "button";
   btn.title = "The student came late – put them back in the queue for treatment";
+  const reset = function () { btn.dataset.confirm = ""; btn.textContent = "Mark as Arrived"; };
+  if (arrivedConfirm.uid === a.uid && Date.now() < arrivedConfirm.until) {
+    btn.dataset.confirm = "1"; btn.textContent = "Tap again to confirm";
+    setTimeout(reset, arrivedConfirm.until - Date.now());
+  }
   btn.addEventListener("click", function (e) {
     e.stopPropagation();
     if (btn.dataset.confirm !== "1") {
       btn.dataset.confirm = "1"; btn.textContent = "Tap again to confirm";
-      setTimeout(function () { btn.dataset.confirm = ""; btn.textContent = "Mark as Arrived"; }, 4000);
+      arrivedConfirm = { uid: a.uid, until: Date.now() + 4000 };
+      setTimeout(reset, 4000);
       return;
     }
+    arrivedConfirm = { uid: null, until: 0 };
     markArrived(a, btn);
   });
   return btn;
@@ -443,60 +446,41 @@ function markArrived(appt, btn) {
   if (ap.busy) return;
   ap.busy = true;
   if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
-  api(APPT_URL + "?id=" + appt.id, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status: "Late Arrival" })
-  })
-    .then(function (data) {
-      ap.busy = false;
-      const sameClass = ap.loaded && appt.grade === ap.grade && appt.section === ap.section &&
-                        dateOnly(appt.appointment_date) === ap.date;
+  StudentStorageInfo.changeAppointment(appt, { status: "Late Arrival" }, { label: "Arrived late" })
+    .then(function () {
+      const sameClass = ap.loaded && appt.grade === ap.grade && appt.section === ap.section && appt._date === ap.date;
       const label = apCode(appt) + " " + (appt.name || "");
-      if (sameClass) {
-        const i = ap.list.findIndex(function (a) { return a.id === appt.id; });
-        if (i >= 0) ap.list[i] = Object.assign({}, ap.list[i], data.appointment);
-        ap.last = { id: appt.id, text: "🕒 " + label + " arrived – moved to the front of the queue" };
-        renderSession();
-      } else {
-        ap.last = { goto: { grade: appt.grade, section: appt.section },
-                    text: "🕒 " + label + " arrived (" + appt.grade + " – " + appt.section + ")" };
-        if (ap.loaded) renderSession();
-      }
+      ap.last = sameClass
+        ? { uid: appt.uid, text: "🕒 " + label + " arrived – moved to the front of the queue" }
+        : { goto: { grade: appt.grade, section: appt.section },
+            text: "🕒 " + label + " arrived (" + appt.grade + " – " + appt.section + ")" };
       showToast(label + " marked as arrived");
-      return loadAbsent();
+      $("abError").textContent = "";
     })
     .catch(function (err) {
-      ap.busy = false;
-      if (handleAuthError(err)) return;
       if (btn) { btn.disabled = false; btn.textContent = "Mark as Arrived"; btn.dataset.confirm = ""; }
-      // Nothing was saved: keep the student listed and say why
-      const msg = "Could not mark " + apCode(appt) + " as arrived – nothing was changed. " +
-                  (err.status ? err.message : "Check the internet connection and try again.");
-      if (err.status) { loadAbsent().then(function () { $("abError").textContent = msg; }); refreshSession(); }
-      else $("abError").textContent = msg;
+      $("abError").textContent = "Could not mark " + apCode(appt) + " as arrived – nothing was changed. " + err.message;
+    })
+    .finally(function () {
+      ap.busy = false;
+      readClass().then(function () { if (ap.loaded) renderSession(); return loadAbsent(); });
     });
 }
 
-// The dentist pressed Absent by mistake: back to Waiting, absence removed
+// The dentist pressed Absent by mistake: back to what the student was before
 function undoAbsent(appt) {
   if (ap.busy) return;
   ap.busy = true;
-  api(APPT_URL + "?id=" + appt.id, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status: "Waiting", undo: true })
-  })
-    .then(function (data) {
-      const i = ap.list.findIndex(function (a) { return a.id === appt.id; });
-      if (i >= 0) ap.list[i] = Object.assign({}, ap.list[i], data.appointment);
+  StudentStorageInfo.changeAppointment(appt, { status: "Waiting", undo: true }, { label: "Undo absent" })
+    .then(function (rec) {
       ap.last = null;
-      showToast(apCode(appt) + " absence undone" + (data.appointment.status === "Late Arrival" ? " (back to late arrival)" : ""));
-      ap.busy = false;
-      renderSession();
-      loadAbsent();
+      showToast(apCode(appt) + " absence undone" + (rec.status === "Late Arrival" ? " (back to late arrival)" : ""));
     })
-    .catch(function (err) { ap.busy = false; if (!handleAuthError(err)) apError(err.message); });
+    .catch(function (err) { apError(err.message); })
+    .finally(function () {
+      ap.busy = false;
+      readClass().then(function () { renderSession(); loadAbsent(); });
+    });
 }
 
 // Switch the pickers to another class and load it
@@ -518,16 +502,19 @@ function loadAbsent() {
   const date = $("apDate").value;
   if (!date || !token) return Promise.resolve();
   ab.loading = true;
-  return api(APPT_URL + "?absent=1&date=" + encodeURIComponent(date))
-    .then(function (data) {
-      ab.list = data.appointments || [];
-      ab.date = date;
-      $("abError").textContent = "";
-      renderAbsent();
+  const fetchIt = navigator.onLine
+    ? api(APPT_URL + "?absent=1&date=" + encodeURIComponent(date))
+        .then(function (data) { return StudentStorageInfo.cacheAppointments(data.appointments || []); })
+        .catch(function (err) { if (!handleAuthError(err)) console.warn("absent list download failed", err); })
+    : Promise.resolve();
+  return fetchIt
+    .then(function () {
+      return StudentStorageInfo.getAppointments(function (a) { return a._date === date && a.status === "Absent"; });
     })
-    .catch(function (err) {
-      if (handleAuthError(err)) return;
-      $("abError").textContent = "Could not load absent students: " + err.message;
+    .then(function (list) {
+      ab.list = list;
+      ab.date = date;
+      renderAbsent();
     })
     .finally(function () { ab.loading = false; });
 }
@@ -537,7 +524,6 @@ function renderAbsent() {
   $("abTotal").textContent = String(ab.list.length);
   $("abTotal").className = "ab-total" + (ab.list.length ? " has" : "");
 
-  // Grade + Section groups, sorted like everywhere else (Kinder, Grade 1, 2 ... / Section A, B ...)
   const groups = new Map();
   ab.list.forEach(function (a) {
     const k = classKey(a);
@@ -547,21 +533,18 @@ function renderAbsent() {
   const ordered = Array.from(groups.values()).sort(function (x, y) {
     return compareGrades(x.grade, y.grade) || compareSections(x.section, y.section);
   });
-  ordered.forEach(function (g) { g.items.sort(compareCodes); }); // M-1, M-2 ... M-10, then F-1 ...
+  ordered.forEach(function (g) { g.items.sort(byCode); }); // M-1, M-2 ... M-10, then F-1 ...
 
-  // Default filter: follow the class being worked on (if it has absences), otherwise All –
-  // until the dentist picks a filter themselves
   if (ab.filter && ab.filter !== "all" && !groups.has(ab.filter)) { ab.filter = null; ab.picked = false; }
   if (!ab.picked) {
     const mine = ap.loaded ? ap.grade + "|" + ap.section : null;
     ab.filter = mine && groups.has(mine) ? mine : "all";
   }
 
-  // Filter chips with a count per Grade + Section
   const chips = $("abFilters");
   chips.innerHTML = "";
-  const addChip = function (key, text, n) {
-    const c = el("button", "chip" + (ab.filter === key ? " on" : ""), text);
+  const addChip = function (key, label, n) {
+    const c = el("button", "chip" + (ab.filter === key ? " on" : ""), label);
     c.type = "button";
     c.appendChild(el("span", "cnt", "(" + n + ")"));
     c.addEventListener("click", function () { ab.filter = key; ab.picked = true; renderAbsent(); });
@@ -570,7 +553,6 @@ function renderAbsent() {
   addChip("all", "All sections", ab.list.length);
   ordered.forEach(function (g) { addChip(classKey(g), g.grade + " – " + g.section, g.items.length); });
 
-  // Search by student code (e.g. "M-15", "m15", "15") or name
   const q = $("abSearch").value.trim().toLowerCase();
   const qCode = q.replace(/[\s-]/g, "");
   const match = function (a) {
@@ -614,32 +596,17 @@ function renderAbsent() {
   }
 }
 
-// Optional full tooth-map exam for the current student, then come back here
-function startExam(appt) {
-  const s = studentById(appt.student_id);
-  if (!s) { $("apActionError").textContent = "Student not found – press Reload section."; return; }
-  currentStudent = s;
-  visitReturnView = "appointments";
-  afterVisitSave = function (visit) {
-    ap.exam = { apptId: appt.id, visitId: visit && visit.id };
-    visitReturnView = "record";
-    show("appointments");
-    updateExamIndicator();
-  };
-  openVisitForm(null);
-}
-
-// ---------- personal record: appointment & attendance history ----------
+// ---------- personal record: appointment & attendance history (all school years) ----------
 function loadApptHistory() {
   const box = $("apptHistory");
   const count = $("apptHistoryCount");
   box.innerHTML = '<p class="muted">Loading...</p>';
   count.textContent = "";
   const s = currentStudent;
-  return api(APPT_URL + "?student_id=" + encodeURIComponent(s.id))
-    .then(function (data) {
+  const draw = function () {
+    return StudentStorageInfo.getHistory(s.identity_id || null, [s.id]).then(function (h) {
       if (!currentStudent || currentStudent.id !== s.id) return;
-      const list = data.appointments || [];
+      const list = h.appointments;
       box.innerHTML = "";
       const absences = list.filter(function (a) { return a.was_absent || a.status === "Absent"; }).length;
       count.textContent = list.length
@@ -654,7 +621,7 @@ function loadApptHistory() {
           const p = el("p"); p.appendChild(el("b", "", label + ": ")); p.appendChild(document.createTextNode(value)); item.appendChild(p);
         };
         line("Date", longDate(a.appointment_date) + (a.extra ? " (extra appointment)" : ""));
-        line("Class", a.grade + " – " + a.section);
+        line("Class", (a.school_year ? "SY " + a.school_year + " · " : "") + a.grade + " – " + a.section);
         line("Status", a.status === "Completed" ? (a.was_absent ? "Present (late arrival)" : "Present")
                      : a.status === "Absent" ? "ABSENT"
                      : a.status === "Late Arrival" ? "Late arrival – waiting for treatment"
@@ -663,22 +630,22 @@ function loadApptHistory() {
           line("Attendance", "Marked absent" + (a.absent_at ? " at " + fmtTime(a.absent_at) : "") +
                (a.arrived_at ? " · arrived at " + fmtTime(a.arrived_at) : " · did not arrive"));
         }
-        if (a.status === "Completed") line("Result", a.result || "Completed");
+        if (a.result) line("Result", a.result);                    // older appointments only
         if (a.notes) line("Dentist notes", a.notes);
-        if (a.visit_id) line("Exam", "Tooth-map exam recorded (see Visit History)");
-        if (a.events && a.events.length) {
-          line("Status log", a.events.map(function (e) {
-            return fmtTime(e.at) + " " + (e.from || "—") + " → " + e.to + (e.by ? " (" + e.by + ")" : "");
+        if (a.visit_id || a._visit_uid) line("Exam", "Tooth-map examination recorded (see Visit History)");
+        const events = (a.events || []).concat(a._local_events || []);
+        if (events.length) {
+          line("Status log", events.map(function (e) {
+            return fmtTime(e.at) + " " + (e.from || "—") + " → " + e.to + (e.by ? " (" + e.by + ")" : "") + (e.local ? " (this device)" : "");
           }).join(" · "));
         }
+        const badge = syncBadge(a);
+        if (badge) item.appendChild(badge);
         box.appendChild(item);
       });
-    })
-    .catch(function (err) {
-      if (handleAuthError(err)) return;
-      box.innerHTML = "";
-      box.appendChild(el("p", "error", err.message));
     });
+  };
+  return draw();   // Dental.js downloads the history; draw again when it arrives
 }
 
 // Intentionally add a 2nd appointment for the same student today (needs a double tap)
@@ -691,16 +658,9 @@ function addExtraAppointment() {
     return;
   }
   btn.dataset.confirm = ""; btn.textContent = "Add another appointment today";
-  api(APPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "extra", student_id: currentStudent.id, date: todayIso() })
-  })
-    .then(function () {
-      showToast("Extra appointment added for today");
-      loadApptHistory();
-    })
-    .catch(function (err) { if (!handleAuthError(err)) showToast(err.message); });
+  StudentStorageInfo.extraAppointment(currentStudent, todayIso(), currentStudent.school_year || currentSchoolYear)
+    .then(function () { showToast("Extra appointment added for today"); loadApptHistory(); })
+    .catch(function (err) { showToast(err.message); });
 }
 
 // ---------- open / events ----------
@@ -721,9 +681,18 @@ $("abSearch").addEventListener("input", renderAbsent);
 $("apLoad").addEventListener("click", loadSession);
 $("extraApptBtn").addEventListener("click", addExtraAppointment);
 
-// Keep the screen in sync (e.g. a second device), without touching typed notes
+// After uploads finish (or the history arrives), redraw from this device's storage
+function refreshFromStorage() {
+  if ($("appointments").style.display === "block") {
+    readClass().then(function () { if (ap.loaded) renderSession(); });
+    if (!ab.loading) loadAbsent();
+  }
+  if ($("record").style.display === "block" && currentStudent) loadApptHistory();
+}
+
+// Keep the screen in sync with other devices (only while the list page is open)
 setInterval(function () {
-  if (token && !document.hidden && $("appointments").style.display === "block") {
+  if (token && !document.hidden && navigator.onLine && $("appointments").style.display === "block") {
     refreshSession();
     if (!ab.loading) loadAbsent();
   }
