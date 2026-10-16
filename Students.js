@@ -242,7 +242,8 @@ function groupStudents(list) {
 
 function fillGradeFilter() {
   const current = gradeFilter.value;
-  const grades = Array.from(new Set(students.map(function (s) { return s.grade; }).filter(Boolean))).sort(compareGrades);
+  // only the school's grades (Grade 7–12, SchoolClasses.js)
+  const grades = GRADE_LIST.slice();
   gradeFilter.innerHTML = '<option value="">All grades</option>';
   grades.forEach(function (g) {
     const o = document.createElement("option");
