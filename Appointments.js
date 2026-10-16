@@ -20,7 +20,8 @@ const ap = {
   loaded: false,
   busy: false,
   last: null,         // last action (for "Undo absent")
-  listScroll: 0,      // scroll position of the list when an examination was opened
+  listScroll: 0,      // scroll position of the page when an examination was opened
+  listInner: 0,       // scroll position inside the section list (it scrolls by itself past 20 students)
   flashUid: null      // row to highlight when coming back
 };
 
@@ -152,6 +153,7 @@ function loadSession() {
   if (!grade || !section) { apError("Please select a grade and a section first."); return; }
   if (!date) { apError("Please choose the appointment date."); return; }
   apError("");
+  if (grade !== ap.grade || section !== ap.section || date !== ap.date) $("apList").scrollTop = 0;  // new class: start at the top
   ap.busy = true; updateLoadButton();
   const changed = grade !== ap.grade || section !== ap.section || date !== ap.date;
 
@@ -301,8 +303,11 @@ function renderNext() {
   }
 }
 
+const LIST_SCROLL_AFTER = 20;   // more students than this: the section list gets its own scroll bar
+
 function renderList() {
   const box = $("apList");
+  const keep = box.scrollTop;    // redrawing must not jump the list back to the top
   box.innerHTML = "";
   const cur = currentAppt();
   ap.list.forEach(function (a) {
@@ -328,12 +333,15 @@ function renderList() {
       row.title = "Open " + (a.name || "student") + "'s personal record";
       row.addEventListener("click", function () {
         ap.listScroll = window.scrollY;
+        ap.listInner = $("apList").scrollTop;
         ap.flashUid = a.uid;
         openRecord(studentForAppt(a), "appointments");
       });
     }
     box.appendChild(row);
   });
+  box.classList.toggle("scrolling", ap.list.length > LIST_SCROLL_AFTER);
+  box.scrollTop = keep;
 }
 
 function renderSummary() {
@@ -374,6 +382,7 @@ function renderSummary() {
 function openExam(appt) {
   if (appt.status !== "Waiting" && appt.status !== "Late Arrival") return;
   ap.listScroll = window.scrollY;               // come back to exactly this spot
+  ap.listInner = $("apList").scrollTop;
   ap.flashUid = appt.uid;
   currentStudent = studentForAppt(appt);
   visitReturnView = "appointments";
@@ -394,6 +403,7 @@ function returnToList() {
     loadAbsent();
     requestAnimationFrame(function () {
       window.scrollTo(0, ap.listScroll || 0);
+      $("apList").scrollTop = ap.listInner || 0;
       const row = ap.flashUid ? document.querySelector('#apList .ap-row[data-uid="' + ap.flashUid + '"]') : null;
       if (row) { row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
     });

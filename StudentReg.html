@@ -107,30 +107,6 @@
     .code-taken { margin: -14px 0 22px; font-weight: 700; color: #b3261e; min-height: 0; }
     .code-taken:empty { display: none; }
 
-    /* ===== Class list (Grade -> Section -> codes) ===== */
-    .class-list { max-width: 480px; margin: 0 auto; padding: 0 32px 48px; }
-    .class-list h2 { margin-top: 0; }
-    .grade-block { margin-bottom: 22px; }
-    .grade-title { margin: 0 0 10px; font-size: 19px; color: #1f2a2e; }
-    .section-box { border: 2px solid var(--border); border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
-    .section-box.mine { border-color: var(--teal); }
-    .section-head {
-      display: flex; justify-content: space-between; align-items: center; gap: 8px;
-      background: #f3f6f5; padding: 8px 12px; border-bottom: 1px solid var(--border);
-    }
-    .section-head h3 { margin: 0; font-size: 16px; color: var(--teal); }
-    .section-head span { color: var(--label); font-size: 13px; font-weight: 700; }
-    .gender-group { padding: 8px 12px; }
-    .gender-group + .gender-group { border-top: 1px dashed var(--border); }
-    .gender-label { font-size: 12px; font-weight: 700; color: var(--label); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
-    .codes { display: flex; flex-wrap: wrap; gap: 6px; }
-    .code-badge {
-      display: inline-block; min-width: 44px; text-align: center; padding: 4px 8px; border-radius: 6px;
-      font-weight: 700; font-size: 14px; color: #fff; background: #4a7fb5;
-    }
-    .code-badge.F { background: #c0587e; }
-    .code-badge.yours { outline: 3px solid #f0b400; outline-offset: 1px; }
-
     #message {
       margin-top: 20px;
       color: var(--teal);
@@ -251,12 +227,6 @@
     <p id="message"></p>
   </form>
 
-  <!-- ===== Class list: Grade -> Section -> student codes (codes only, no names) ===== -->
-  <section class="class-list">
-    <h2>Class List</h2>
-    <p class="note">Student codes already registered in each grade and section. Pick a number that isn&rsquo;t taken in your section.</p>
-    <div id="classGroups"><p class="note">Loading...</p></div>
-  </section>
 
   <script src="SchoolClasses.js"></script>
   <script src="StudentReg.js"></script>
