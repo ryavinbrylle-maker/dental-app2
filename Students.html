@@ -677,27 +677,19 @@
       <!-- Student + appointment (appointment mode) -->
       <div class="card ex-student" id="exStudent"></div>
 
-      <!-- Previous dental records (read-only, separate from this examination) -->
-      <div class="card prev-card" id="prevCard">
-        <div class="card-head">
-          <h3>&#128193; Previous Dental Records</h3>
-          <span class="muted" id="prevCount"></span>
-        </div>
-        <div id="prevRecords"></div>
-      </div>
-
       <div class="card">
         <h3>Examination <span class="ex-today" id="exToday"></span></h3>
-        <p class="muted" style="margin:0 0 6px">Tap = Sound, double-tap = Decayed. <b>Keep your finger down and slide</b> across teeth to mark them all. A tooth can have several conditions &mdash; tap it to see or edit them.</p>
-        <span class="small-label">Tooth map</span>
-        <div class="seg">
+        <!-- the tooth map comes first; everything else is below it -->
+        <div class="teeth-scroll" id="examMap"></div>
+        <p class="paint-hint" id="paintHint"></p>
+
+        <div class="seg" style="margin-top:6px">
           <button type="button" id="segPermanent" class="on">Permanent</button>
           <button type="button" id="segPrimary">Primary</button>
         </div>
-        <div class="chips" id="statusChips" style="margin:6px 0 12px"></div>
+        <span class="small-label">Mark many teeth with one condition (optional)</span>
+        <div class="chips" id="statusChips" style="margin:6px 0 8px"></div>
         <p class="hint" id="brushHint"></p>
-        <div class="teeth-scroll" id="examMap"></div>
-        <p class="paint-hint" id="paintHint"></p>
 
         <div id="toothPanel" style="display:none">
           <div class="tp-head">
@@ -714,6 +706,15 @@
 
         <span class="small-label">Dentist notes</span>
         <textarea class="box" id="examNotes" placeholder="Findings, treatment given, advice for parents..."></textarea>
+      </div>
+
+      <!-- Previous dental records (read-only, separate from this examination) -->
+      <div class="card prev-card" id="prevCard">
+        <div class="card-head">
+          <h3>&#128193; Previous Dental Records</h3>
+          <span class="muted" id="prevCount"></span>
+        </div>
+        <div id="prevRecords"></div>
       </div>
 
       <p class="error" id="visitError"></p>
