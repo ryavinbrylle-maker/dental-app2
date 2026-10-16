@@ -266,7 +266,7 @@ function filtered() {
   });
 }
 
-const COLUMNS = ["Code", "Name", "Age", "Parent contact", "Health alerts", "Consent", "Registered"];
+const COLUMNS = ["Code", "Name", "Age", "Health alerts", "Consent", "Registered"];
 
 function studentRow(s) {
   const tr = document.createElement("tr");
@@ -278,7 +278,6 @@ function studentRow(s) {
   cell(tr, badge);
   cell(tr, text(s.name));
   cell(tr, text(s.age));
-  cell(tr, text(s.contact));
   const alerts = healthAlerts(s);
   cell(tr, alerts.length ? tag(alerts.join(", "), "warn") : "—");
   cell(tr, s.consent ? tag("Yes", "yes") : tag("No", "no"));
@@ -359,16 +358,20 @@ function render() {
 }
 
 // Full student details as a grid (used on the student record page)
+// Blood type, height, weight, address, parent/guardian and dental history are no longer asked
+// on the registration form; they only appear here for older records that still have them.
 function studentInfoGrid(s) {
+  const has = function (v) { return v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && !v.length); };
   const sections = [
     ["Student", [
       ["Class", text([s.grade, s.section].filter(Boolean).join(" – "))],
       ["Student code", studentCode(s) || "—"],
-      ["Birthdate", formatDate(s.birthdate)], ["Blood type", text(s.blood_type)],
-      ["Height", s.height_cm ? s.height_cm + " cm" : "—"], ["Weight", s.weight_kg ? s.weight_kg + " kg" : "—"],
-      ["Address", text(s.address)]
+      ["Birthdate", formatDate(s.birthdate)], ["Age", text(s.age)],
+      has(s.blood_type) && ["Blood type", text(s.blood_type)],
+      has(s.height_cm) && ["Height", s.height_cm + " cm"], has(s.weight_kg) && ["Weight", s.weight_kg + " kg"],
+      has(s.address) && ["Address", text(s.address)]
     ]],
-    ["Parent / Guardian", [
+    [s.parent_name, s.relationship, s.contact, s.emergency_contact].some(has) && ["Parent / Guardian", [
       ["Name", text(s.parent_name)], ["Relationship", text(s.relationship)],
       ["Contact", text(s.contact)], ["Emergency", text(s.emergency_contact)]
     ]],
@@ -376,11 +379,11 @@ function studentInfoGrid(s) {
       ["Conditions", text(s.conditions)], ["Other", text(s.other_conditions)],
       ["Allergies", text(s.allergies)], ["Medications", text(s.medications)]
     ]],
-    ["Dental", [
+    [s.last_visit, s.brushing, s.dental_concerns, s.dental_notes].some(has) && ["Dental history", [
       ["Last visit", formatDate(s.last_visit)], ["Brushing", text(s.brushing)],
       ["Concerns", text(s.dental_concerns)], ["Notes", text(s.dental_notes)]
     ]]
-  ];
+  ].filter(Boolean).map(function (sec) { return [sec[0], sec[1].filter(Boolean)]; });
 
   const grid = document.createElement("div");
   grid.className = "detail-grid";

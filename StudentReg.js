@@ -238,27 +238,13 @@ form.addEventListener("submit", function (e) {
     codeNumber: code.number,
     birthdate: val("birthdate"),
     age: ageInput.value,
-    bloodType: val("bloodType"),
     grade: val("grade"),
     section: val("section"),
-    height: val("height"),
-    weight: val("weight"),
-    address: val("address"),
-
-    parentName: val("parentName"),
-    relationship: val("relationship"),
-    contact: val("contact"),
-    emergencyContact: val("emergencyContact"),
 
     conditions: checked("conditions"),
     otherConditions: val("otherConditions"),
     allergies: val("allergies"),
     medications: val("medications"),
-
-    lastVisit: val("lastVisit"),
-    brushing: val("brushing"),
-    dentalConcerns: checked("dentalConcerns"),
-    dentalNotes: val("dentalNotes"),
 
     consent: document.getElementById("consent").checked,
     registeredOn: new Date().toISOString()
