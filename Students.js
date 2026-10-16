@@ -254,10 +254,15 @@ function fillGradeFilter() {
 }
 
 // ---------- list ----------
+// Kinder to Grade 6 are no longer used by the school: those students are never listed
+// ("All grades" included) and can be removed with one button (see oldGradeBox below).
+function isOldGrade(g) { return Boolean(g) && !GRADE_LIST.includes(g); }
+function schoolStudents() { return students.filter(function (s) { return !isOldGrade(s.grade); }); }
+
 function filtered() {
   const q = searchInput.value.trim().toLowerCase();
   const g = gradeFilter.value;
-  return students.filter(function (s) {
+  return schoolStudents().filter(function (s) {
     if (g && s.grade !== g) return false;
     if (!q) return true;
     const code = studentCode(s).toLowerCase();
@@ -327,14 +332,70 @@ function sectionBox(title, list, opts) {
   return box;
 }
 
+// ---------- remove Kinder–Grade 6 students (grades the school no longer uses) ----------
+let removingOld = false;
+function renderOldGradeBox() {
+  let box = document.getElementById("oldGradeBox");
+  const old = students.filter(function (s) { return isOldGrade(s.grade); });
+  if (!old.length && !removingOld) { if (box) box.remove(); return; }
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "oldGradeBox";
+    box.className = "card match-card";
+    groupsBox.parentNode.insertBefore(box, groupsBox);
+  }
+  if (removingOld) return;                         // progress text is being shown
+  box.innerHTML = "";
+  const grades = Array.from(new Set(old.map(function (s) { return s.grade; }))).sort(compareGrades);
+  box.appendChild(el("h3", "", old.length + " student" + (old.length === 1 ? "" : "s") + " in Kinder – Grade 6"));
+  box.appendChild(el("p", "muted", "The school only uses Grade 7 to Grade 12 now, so these students (" + grades.join(", ") +
+    ") are hidden from the list. Remove them from the roster? Their dental records are kept in the archive; nothing else is changed."));
+  const btn = el("button", "btn-absent", "Remove all " + old.length + " Kinder – Grade 6 students");
+  btn.type = "button";
+  btn.addEventListener("click", function () {
+    if (!navigator.onLine) { showToast("Removing students needs internet."); return; }
+    if (btn.dataset.confirm !== "1") {
+      btn.dataset.confirm = "1"; btn.textContent = "Tap again to remove " + old.length + " students";
+      setTimeout(function () { btn.dataset.confirm = ""; btn.textContent = "Remove all " + old.length + " Kinder – Grade 6 students"; }, 6000);
+      return;
+    }
+    removeOldGradeStudents(old, box);
+  });
+  box.appendChild(btn);
+}
+
+function removeOldGradeStudents(list, box) {
+  removingOld = true;
+  let done = 0, failed = 0;
+  const status = el("p", "muted", "");
+  box.innerHTML = ""; box.appendChild(el("h3", "", "Removing Kinder – Grade 6 students...")); box.appendChild(status);
+  // a few at a time so a big list finishes quickly without overloading the server
+  const queue = list.slice();
+  function worker() {
+    const s = queue.shift();
+    if (!s) return Promise.resolve();
+    return fetch(API_URL + "?id=" + s.id, { method: "DELETE", headers: { "Authorization": "Bearer " + token } })
+      .then(readJson)
+      .then(function () { done++; }, function (err) { failed++; if (err.status === 401) queue.length = 0; })
+      .then(function () { status.textContent = done + " of " + list.length + " removed" + (failed ? ", " + failed + " failed" : ""); return worker(); });
+  }
+  Promise.all([worker(), worker(), worker(), worker()]).then(function () {
+    removingOld = false;
+    showToast(done + " Kinder – Grade 6 student" + (done === 1 ? "" : "s") + " removed" + (failed ? " (" + failed + " failed – tap the button again)" : ""));
+    return loadStudents(true);
+  }).catch(function (err) { removingOld = false; handleRefreshError(err); });
+}
+
 function render() {
   const list = filtered();
   groupsBox.innerHTML = "";
-  countText.textContent = list.length + " of " + students.length + " students";
+  const total = schoolStudents().length;
+  countText.textContent = list.length + " of " + total + " students";
+  renderOldGradeBox();
 
   if (!list.length) {
     const p = document.createElement("p"); p.className = "empty";
-    p.textContent = students.length ? "No students match your search." : "No students registered yet.";
+    p.textContent = total ? "No students match your search." : "No students registered yet.";
     groupsBox.appendChild(p);
     return;
   }
