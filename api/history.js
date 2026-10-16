@@ -31,7 +31,8 @@ export default async function handler(req, res) {
         AND s1.removed_at IS NULL
       ORDER BY v.visit_date DESC, v.id DESC`;
     const appointments = await sql`
-      SELECT a.*, s2.identity_id
+      SELECT a.*, s2.identity_id, s2.name, s2.code_gender, s2.code_number,
+             s2.allergies, s2.conditions, s2.other_conditions, s2.medications
       FROM students s1
       JOIN students s2 ON s2.identity_id = s1.identity_id
       JOIN appointments a ON a.student_id = s2.id
