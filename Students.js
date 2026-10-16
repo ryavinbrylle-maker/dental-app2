@@ -203,9 +203,8 @@ function gradeRank(g) {
 function compareGrades(a, b) {
   return gradeRank(a) - gradeRank(b) || String(a).localeCompare(String(b), undefined, { numeric: true });
 }
-function compareSections(a, b) {
-  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
-}
+// Sections / strands in the school's own order (SchoolClasses.js); others A–Z after them
+function compareSections(a, b) { return compareSchoolSections(a, b); }
 // Inside a section: Male first, then Female; each by the code NUMBER (1, 2, 9, 10, 11 ...)
 function compareCodes(a, b) {
   const ga = a.code_gender === "M" ? 0 : a.code_gender === "F" ? 1 : 2;

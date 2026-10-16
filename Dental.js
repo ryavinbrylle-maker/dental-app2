@@ -379,9 +379,8 @@ function fillStudentHeader() {
 }
 
 // ---------- edit class / student code, remove student (needs internet) ----------
-const GRADE_OPTIONS = ["Kinder", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
-                       "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
-const SECTION_OPTIONS = ["Section A", "Section B", "Section C"];
+// Grades and sections/strands come from SchoolClasses.js (the school's own list)
+const GRADE_OPTIONS = GRADE_LIST;
 
 function fillSelect(id, options, value) {
   const sel = document.getElementById(id);
@@ -403,7 +402,7 @@ function fillEditForm() {
   const s = currentStudent;
   document.getElementById("editName").value = s.name || "";
   fillSelect("editGrade", GRADE_OPTIONS, s.grade);
-  fillSelect("editSection", SECTION_OPTIONS, s.section);
+  fillSelect("editSection", sectionsFor(s.grade), s.section);
   document.getElementById("editGender").value = s.code_gender || (s.sex === "Female" ? "F" : "M");
   document.getElementById("editNumber").value = s.code_number || "";
   document.getElementById("editError").textContent = "";
@@ -1018,3 +1017,10 @@ document.getElementById("segPrimary").addEventListener("click", function () {
   flushPendingTap(); saveToothNote(); form.dentition = "Primary"; form.selected = null; renderExam();
 });
 document.getElementById("toothNote").addEventListener("input", saveToothNote);
+
+// Changing the grade shows only that grade's sections / strands
+document.getElementById("editGrade").addEventListener("change", function () {
+  const keep = document.getElementById("editSection").value;
+  const secs = sectionsFor(this.value);
+  fillSelect("editSection", secs, secs.includes(keep) ? keep : "");
+});

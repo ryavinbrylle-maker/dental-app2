@@ -223,6 +223,10 @@
     .ap-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
     .ap-col > .card, .ap-listcard { margin: 0; }
     .ap-listcard { min-width: 0; }
+    /* more than 20 students: the list scrolls inside its box (about 20 rows tall) */
+    #apList.scrolling { max-height: 920px; overflow-y: auto; overscroll-behavior: contain;
+                        padding-right: 4px; -webkit-overflow-scrolling: touch; }
+    @media (max-width: 760px) { #apList.scrolling { max-height: 70vh; } }
     @media (min-width: 761px) { .ap-col { position: sticky; top: 12px; } }  /* next student stays in view */
     .ap-current { border: 3px solid #2f6fd0; }
     .ap-now { color: #2f6fd0; font-weight: 700; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
@@ -485,7 +489,7 @@
             <select class="box" id="apGrade"></select>
           </div>
           <div>
-            <span class="small-label" style="margin-top:0">Section</span>
+            <span class="small-label" style="margin-top:0">Section / Strand</span>
             <select class="box" id="apSection" disabled></select>
           </div>
           <div>
@@ -594,7 +598,7 @@
             <select class="box" id="editGrade"></select>
           </div>
           <div>
-            <span class="small-label">Section</span>
+            <span class="small-label">Section / Strand</span>
             <select class="box" id="editSection"></select>
           </div>
           <div>
@@ -730,6 +734,7 @@
     </section>
   </main>
 
+  <script src="SchoolClasses.js"></script>
   <script src="StudentStorageInfo.js"></script>
   <script src="Students.js"></script>
   <script src="Dental.js"></script>
