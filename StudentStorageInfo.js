@@ -157,11 +157,13 @@ const StudentStorageInfo = (function () {
             mine._sync = syncStateFor(ops, mine.uid);
             jobs.push(db.put(storeName, mine));
           } else {
-            if (mine && mine.uid !== row.uid) {
-              row.uid = mine.uid;                       // keep the device's key for the same record
-            }
-            row._sync = "synced";
-            jobs.push(db.put(storeName, row));
+            // server copy wins, but fields it did not send (e.g. the student's name and code,
+            // which some downloads leave out) are kept from this device's copy
+            const merged = mine ? Object.assign({}, mine, row) : row;
+            merged.uid = mine ? mine.uid : row.uid;      // keep the device's key for the same record
+            delete merged._server;
+            merged._sync = "synced";
+            jobs.push(db.put(storeName, merged));
           }
         });
         return Promise.all(jobs);
