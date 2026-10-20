@@ -261,9 +261,7 @@ function schoolStudents() { return students.filter(function (s) { return !isOldG
 
 function filtered() {
   const q = searchInput.value.trim().toLowerCase();
-  const g = gradeFilter.value;
   return schoolStudents().filter(function (s) {
-    if (g && s.grade !== g) return false;
     if (!q) return true;
     const code = studentCode(s).toLowerCase();
     if (code && (code === q || code.replace("-", "") === q.replace(/[\s-]/g, ""))) return true;
@@ -386,37 +384,134 @@ function removeOldGradeStudents(list, box) {
   }).catch(function (err) { removingOld = false; handleRefreshError(err); });
 }
 
-function render() {
-  const list = filtered();
-  groupsBox.innerHTML = "";
-  const total = schoolStudents().length;
-  countText.textContent = list.length + " of " + total + " students";
-  renderOldGradeBox();
+// ---------- dashboard: Grade tabs -> Section cards -> one section's students ----------
+// Instead of one very long page, the dentist picks a grade, then a section (big cards with
+// counts), and only that section's students are shown. Typing in the search box searches
+// every grade and section at once.
+const VIEW_KEY = "dashboardView";
+let dashView = (function () {
+  try { return JSON.parse(localStorage.getItem(VIEW_KEY)) || {}; } catch (e) { return {}; }
+})();
+function setDashView(v) {
+  dashView = v;
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify(v)); } catch (e) { /* not saved – fine */ }
+  render();
+  window.scrollTo(0, 0);
+}
 
-  if (!list.length) {
-    const p = document.createElement("p"); p.className = "empty";
-    p.textContent = total ? "No students match your search." : "No students registered yet.";
-    groupsBox.appendChild(p);
+function render() {
+  const all = schoolStudents();
+  const q = searchInput.value.trim();
+  groupsBox.innerHTML = "";
+  renderOldGradeBox();
+  if (!all.length) {
+    countText.textContent = "0 students";
+    groupsBox.appendChild(el("p", "empty", "No students registered yet."));
+    return;
+  }
+  if (q) { renderSearchResults(all); return; }
+
+  const groups = groupStudents(all);
+  const byGrade = new Map(groups.grades.map(function (g) { return [g.grade, g]; }));
+  // grade: remembered choice, else the first grade that has students
+  let grade = dashView.grade;
+  if (grade !== "unassigned" && !GRADE_LIST.includes(grade)) grade = null;
+  if (grade === "unassigned" && !groups.unassigned.length) grade = null;
+  if (!grade) grade = (groups.grades[0] && groups.grades[0].grade) || (groups.unassigned.length ? "unassigned" : GRADE_LIST[0]);
+
+  // Grade tabs
+  const tabs = el("div", "grade-tabs");
+  GRADE_LIST.forEach(function (g) {
+    const n = byGrade.has(g) ? byGrade.get(g).sections.reduce(function (t, x) { return t + x.students.length; }, 0) : 0;
+    const b = el("button", "grade-tab" + (g === grade ? " on" : "") + (n ? "" : " empty"));
+    b.type = "button";
+    b.appendChild(el("b", "", g));
+    b.appendChild(el("span", "", n + " student" + (n === 1 ? "" : "s")));
+    b.addEventListener("click", function () { setDashView({ grade: g }); });
+    tabs.appendChild(b);
+  });
+  if (groups.unassigned.length) {
+    const b = el("button", "grade-tab warn" + (grade === "unassigned" ? " on" : ""));
+    b.type = "button";
+    b.appendChild(el("b", "", "Not placed"));
+    b.appendChild(el("span", "", groups.unassigned.length + " to fix"));
+    b.addEventListener("click", function () { setDashView({ grade: "unassigned" }); });
+    tabs.appendChild(b);
+  }
+  groupsBox.appendChild(tabs);
+
+  if (grade === "unassigned") {
+    countText.textContent = groups.unassigned.length + " student(s) need a grade, section or code · " + all.length + " students in all";
+    groupsBox.appendChild(sectionBox("Not yet placed", groups.unassigned, { unassigned: true }));
     return;
   }
 
+  const g = byGrade.get(grade) || { grade: grade, sections: [] };
+  const bySection = new Map(g.sections.map(function (x) { return [x.section, x.students]; }));
+  // the school's sections for this grade (also empty ones), plus any older section names in use
+  const names = sectionsFor(grade);
+  g.sections.forEach(function (x) { if (!names.includes(x.section)) names.push(x.section); });
+  const gradeTotal = g.sections.reduce(function (t, x) { return t + x.students.length; }, 0);
+
+  const section = dashView.grade === grade && bySection.has(dashView.section) ? dashView.section : null;
+  if (!section) {
+    countText.textContent = grade + ": " + gradeTotal + " students in " + g.sections.length + " section(s) · " + all.length + " students in all";
+    const grid = el("div", "sec-grid");
+    names.forEach(function (name) {
+      const list = bySection.get(name) || [];
+      const card = el("button", "sec-card" + (list.length ? "" : " empty"));
+      card.type = "button";
+      card.appendChild(el("b", "", name));
+      if (list.length) {
+        const m = list.filter(function (s) { return s.code_gender === "M"; }).length;
+        card.appendChild(el("span", "sec-total", list.length + " students"));
+        card.appendChild(el("span", "muted", m + " male · " + (list.length - m) + " female"));
+        const alerts = list.filter(function (s) { return healthAlerts(s).length; }).length;
+        if (alerts) card.appendChild(el("span", "tag warn", "⚠ " + alerts + " health alert" + (alerts === 1 ? "" : "s")));
+        const fresh = list.filter(function (s) { return newIds.has(s.id); }).length;
+        if (fresh) card.appendChild(el("span", "tag yes", fresh + " new"));
+        card.addEventListener("click", function () { setDashView({ grade: grade, section: name }); });
+      } else {
+        card.appendChild(el("span", "muted", "No students yet"));
+        card.disabled = true;
+      }
+      grid.appendChild(card);
+    });
+    groupsBox.appendChild(grid);
+    return;
+  }
+
+  // one section
+  const list = bySection.get(section);
+  countText.textContent = grade + " – " + section + ": " + list.length + " students";
+  const bar = el("div", "sec-bar");
+  const back = el("button", "secondary", "‹ All " + grade + " sections");
+  back.type = "button";
+  back.addEventListener("click", function () { setDashView({ grade: grade }); });
+  bar.appendChild(back);
+  // quick switch to another section of the same grade
+  const pick = el("select", "box sec-pick");
+  names.filter(function (n) { return bySection.has(n); }).forEach(function (n) {
+    const o = el("option", "", n + " (" + bySection.get(n).length + ")"); o.value = n;
+    if (n === section) o.selected = true;
+    pick.appendChild(o);
+  });
+  pick.addEventListener("change", function () { setDashView({ grade: grade, section: pick.value }); });
+  bar.appendChild(pick);
+  groupsBox.appendChild(bar);
+  groupsBox.appendChild(sectionBox(grade + " – " + section, list));
+}
+
+// Search: results from every grade and section, grouped
+function renderSearchResults(all) {
+  const list = filtered();
+  countText.textContent = list.length + " of " + all.length + " students match “" + searchInput.value.trim() + "”";
+  if (!list.length) { groupsBox.appendChild(el("p", "empty", "No students match your search.")); return; }
   const groups = groupStudents(list);
   groups.grades.forEach(function (g) {
-    const block = document.createElement("div"); block.className = "grade-block";
-    const title = document.createElement("h2"); title.className = "grade-title"; title.textContent = g.grade;
-    block.appendChild(title);
-    g.sections.forEach(function (sec) {
-      block.appendChild(sectionBox(g.grade + " – " + sec.section, sec.students));
-    });
-    groupsBox.appendChild(block);
+    g.sections.forEach(function (sec) { groupsBox.appendChild(sectionBox(g.grade + " – " + sec.section, sec.students)); });
   });
-  if (groups.unassigned.length) {
-    const block = document.createElement("div"); block.className = "grade-block";
-    const title = document.createElement("h2"); title.className = "grade-title"; title.textContent = "Needs a grade, section or code";
-    block.appendChild(title);
-    block.appendChild(sectionBox("Not yet placed", groups.unassigned, { unassigned: true }));
-    groupsBox.appendChild(block);
-  }
+  if (groups.unassigned.length) groupsBox.appendChild(sectionBox("Not yet placed", groups.unassigned, { unassigned: true }));
 }
 
 // Full student details as a grid (used on the student record page)

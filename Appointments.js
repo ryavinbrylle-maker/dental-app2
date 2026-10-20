@@ -317,6 +317,7 @@ function renderList() {
     const inQueue = a.status === "Waiting" || a.status === "Late Arrival";
     const row = el("div", "ap-row s-" + a.status.replace(" ", "") + (isCur ? " current" : ""));
     row.dataset.uid = a.uid;
+    if (ap.flashUid === a.uid && Date.now() < (ap.flashUntil || 0)) row.classList.add("flash");
     row.appendChild(el("span", "code-badge " + (a.code_gender || "none"), apCode(a)));
     row.appendChild(el("span", "nm", (a.name || "—") + (a.extra ? " (extra)" : "")));
     const label = isCur ? "🔵 Next" :
@@ -408,6 +409,7 @@ function returnToList() {
       $("apList").scrollTop = ap.listInner || 0;
       const row = ap.flashUid ? document.querySelector('#apList .ap-row[data-uid="' + ap.flashUid + '"]') : null;
       if (row) { row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
+      ap.flashUntil = Date.now() + 2500;   // keep the highlight if the list redraws (e.g. upload finished)
     });
   });
 }
