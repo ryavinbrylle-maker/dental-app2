@@ -207,6 +207,7 @@ function refreshSession() {
 // ---------- render ----------
 function renderSession() {
   updateLoadButton();
+  applyAbsentFold();                 // the absent summary mentions the section being worked on
   const c = counts();
   const processed = c.Completed + c.Absent;
   const stats = $("apStats");
@@ -307,12 +308,44 @@ function renderNext() {
 
 const LIST_SCROLL_AFTER = 20;   // more students than this: the section list gets its own scroll bar
 
+// Section list filter: All · To see · Absent · Done (remembered on this device)
+const LIST_FILTERS = [
+  ["all", "All", function () { return true; }],
+  ["todo", "To see", function (a) { return a.status === "Waiting" || a.status === "Late Arrival"; }],
+  ["absent", "Absent", function (a) { return a.status === "Absent"; }],
+  ["done", "Done", function (a) { return a.status === "Completed"; }]
+];
+let listFilter = (function () { try { return localStorage.getItem("apListFilter") || "all"; } catch (e) { return "all"; } })();
+function renderListFilter() {
+  const box = $("apFilter");
+  box.innerHTML = "";
+  LIST_FILTERS.forEach(function (f) {
+    const n = ap.list.filter(f[2]).length;
+    const c = el("button", "chip" + (listFilter === f[0] ? " on" : ""), f[1] + " ");
+    c.type = "button";
+    c.setAttribute("aria-pressed", listFilter === f[0] ? "true" : "false");
+    c.appendChild(el("span", "cnt", "(" + n + ")"));
+    c.addEventListener("click", function () {
+      listFilter = f[0];
+      try { localStorage.setItem("apListFilter", listFilter); } catch (e) { /* fine */ }
+      $("apList").scrollTop = 0;
+      renderList();
+    });
+    box.appendChild(c);
+  });
+}
+
 function renderList() {
   const box = $("apList");
   const keep = box.scrollTop;    // redrawing must not jump the list back to the top
   box.innerHTML = "";
+  renderListFilter();
   const cur = currentAppt();
-  ap.list.forEach(function (a) {
+  const show = (LIST_FILTERS.find(function (f) { return f[0] === listFilter; }) || LIST_FILTERS[0])[2];
+  const shown = ap.list.filter(show);
+  if (!shown.length) box.appendChild(el("p", "muted", listFilter === "todo" ? "Everyone in this section has been seen. 🎉" :
+    listFilter === "absent" ? "No absent students in this section." : listFilter === "done" ? "No one has been completed yet." : "No students."));
+  shown.forEach(function (a) {
     const isCur = cur && cur.uid === a.uid;
     const inQueue = a.status === "Waiting" || a.status === "Late Arrival";
     const row = el("div", "ap-row s-" + a.status.replace(" ", "") + (isCur ? " current" : ""));
@@ -343,7 +376,7 @@ function renderList() {
     }
     box.appendChild(row);
   });
-  box.classList.toggle("scrolling", ap.list.length > LIST_SCROLL_AFTER);
+  box.classList.toggle("scrolling", shown.length > LIST_SCROLL_AFTER);
   box.scrollTop = keep;
 }
 
@@ -509,7 +542,30 @@ function openClass(grade, section) {
 }
 
 // ---------- Absent Students container (by Grade and Section) ----------
-const ab = { list: [], filter: null, picked: false, date: "", loading: false };
+const ab = { list: [], filter: null, picked: false, date: "", loading: false,
+             open: (function () { try { return localStorage.getItem("absentOpen") === "1"; } catch (e) { return false; } })() };
+
+// The Absent Students box is folded by default (only a one-line summary), so a long list of
+// absent students never pushes the queue far down the page. The dentist can open it any time.
+function setAbsentOpen(open) {
+  ab.open = open;
+  try { localStorage.setItem("absentOpen", open ? "1" : "0"); } catch (e) { /* fine */ }
+  applyAbsentFold();
+}
+function applyAbsentFold() {
+  const card = $("abTotal").closest(".card");
+  const empty = !ab.list.length;
+  card.classList.toggle("ab-collapsed", !ab.open && !empty);
+  $("abToggle").textContent = ab.open ? "Hide list" : "Show list (" + ab.list.length + ")";
+  $("abToggle").setAttribute("aria-expanded", ab.open ? "true" : "false");
+  // summary when folded: how many are absent in the class being examined, and in all
+  if (empty) { $("abSummary").textContent = ""; return; }
+  const mine = ap.loaded ? ab.list.filter(function (a) { return a.grade === ap.grade && a.section === ap.section; }).length : 0;
+  const others = ab.list.length - mine;
+  $("abSummary").textContent = (ap.loaded ? mine + " absent in " + ap.grade + " – " + ap.section +
+    (others ? " · " + others + " in other sections" : "") : ab.list.length + " absent on this date") +
+    ". Absent students in this section can also be marked arrived from the section list below.";
+}
 
 function classKey(a) { return a.grade + "|" + a.section; }
 
@@ -539,6 +595,7 @@ function renderAbsent() {
   $("abTotal").textContent = String(ab.list.length);
   $("abTotal").className = "ab-total" + (ab.list.length ? " has" : "");
   $("abTotal").closest(".card").classList.toggle("ab-empty", !ab.list.length);
+  applyAbsentFold();
 
   const groups = new Map();
   ab.list.forEach(function (a) {
@@ -694,6 +751,7 @@ $("apGrade").addEventListener("change", function () { fillApSections(true); });
 $("apSection").addEventListener("change", updateLoadButton);
 $("apDate").addEventListener("change", function () { updateLoadButton(); ab.filter = null; ab.picked = false; loadAbsent(); });
 $("abSearch").addEventListener("input", renderAbsent);
+$("abToggle").addEventListener("click", function () { setAbsentOpen(!ab.open); });
 $("apLoad").addEventListener("click", loadSession);
 $("extraApptBtn").addEventListener("click", addExtraAppointment);
 

@@ -607,6 +607,19 @@
 
     /* the sticky Save/Cancel bar on the exam page must never cover a tooth or field */
     html { scroll-padding-bottom: 96px; scroll-padding-top: 12px; }
+
+    /* Absent Students: folded by default so the queue stays near the top; long lists scroll inside */
+    .ap-filter { margin: -4px 0 10px; }
+    .ap-filter .chip { height: 34px; padding: 0 12px; font-size: 14px; }
+    .ap-filter .chip.on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+    .ab-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .ab-toggle { height: 36px; padding: 0 14px; font-size: 14px; }
+    .ab-summary { margin: 0; font-size: 14px; }
+    .ab-summary:empty { display: none; }
+    .ab-card.ab-collapsed #abBody { display: none; }
+    .ab-card:not(.ab-collapsed) .ab-summary { display: none; }
+    .ab-card.ab-empty .ab-toggle { display: none; }
+    #abList { max-height: min(420px, 55vh); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
   </style>
 </head>
 <body>
@@ -736,8 +749,13 @@
       <div class="card ab-card">
         <div class="card-head">
           <h3>&#128308; Absent Students <span class="ab-total" id="abTotal">0</span></h3>
-          <span class="muted" id="abDate"></span>
+          <div class="ab-head-right">
+            <span class="muted" id="abDate"></span>
+            <button type="button" class="secondary ab-toggle" id="abToggle" aria-expanded="false" aria-controls="abBody">Show list</button>
+          </div>
         </div>
+        <p class="muted ab-summary" id="abSummary"></p>
+        <div id="abBody">
         <p class="muted ab-help" style="margin:0 0 10px">If an absent student arrives late, find them here and tap
           <b>Mark as Arrived</b>. They go to the front of their section&rsquo;s queue &mdash; same appointment,
           and the absence stays in their history.</p>
@@ -745,6 +763,7 @@
         <input type="search" class="box" id="abSearch" placeholder="Search by student code (e.g. M-15) or name" autocomplete="off">
         <p class="error" id="abError"></p>
         <div id="abList"></div>
+        </div>
       </div>
 
       <div id="apSession" style="display:none">
@@ -763,6 +782,7 @@
               <h3>Section list</h3>
               <span class="muted">Tap a student to open their examination</span>
             </div>
+            <div class="chips ap-filter" id="apFilter" role="group" aria-label="Show students"></div>
             <div id="apList"></div>
           </div>
         </div>
