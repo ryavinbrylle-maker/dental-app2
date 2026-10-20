@@ -1,5 +1,24 @@
 {
   "redirects": [
     { "source": "/", "destination": "/StudentReg.html", "permanent": false }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "same-origin" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+      ]
+    },
+    {
+      "source": "/Students.html",
+      "headers": [ { "key": "X-Robots-Tag", "value": "noindex, nofollow" } ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [ { "key": "X-Robots-Tag", "value": "noindex" }, { "key": "Cache-Control", "value": "no-store" } ]
+    }
   ]
 }

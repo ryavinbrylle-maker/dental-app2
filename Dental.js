@@ -77,6 +77,17 @@ const views = {
 function show(name, keepScroll) {
   Object.keys(views).forEach(function (k) { if (views[k]) views[k].style.display = k === name ? "block" : "none"; });
   if (!keepScroll) window.scrollTo(0, 0);
+  // highlight the current page in the main navigation
+  const area = name === "appointments" ? "appointments"
+             : name === "schoolYears" ? "schoolyears"
+             : name === "visitForm" ? (visitReturnView === "appointments" ? "appointments" : "students")
+             : name === "record" ? (recordReturnView === "appointments" ? "appointments" : "students")
+             : "students";
+  document.querySelectorAll(".app-nav .nav-item").forEach(function (b) {
+    const on = b.dataset.nav === area;
+    b.classList.toggle("active", on);
+    if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
 }
 
 // ---------- small helpers ----------
@@ -522,8 +533,9 @@ function renderRecord() {
   box.appendChild(el("h4", "", hasAlert ? "⚠ Medical condition" : "Medical condition"));
   [["Allergy", text(s.allergies)],
    ["Medical history", medical.length ? medical.join(", ") : "—"],
-   ["Medications", text(s.medications)],
-   ["Weight", s.weight_kg ? s.weight_kg + " kg" : "—"]].forEach(function (pair) {
+   ["Medications", text(s.medications)]]
+    .concat(s.weight_kg ? [["Weight", s.weight_kg + " kg"]] : [])      // older records only
+    .forEach(function (pair) {
     const p = el("p");
     p.appendChild(el("b", "", pair[0] + ": "));
     p.appendChild(document.createTextNode(pair[1]));
@@ -712,9 +724,54 @@ function openVisitForm(visit, opts) {
   document.getElementById("visitSave").textContent = appt ? "✓ Save & complete appointment" : "Save examination";
   renderExamStudent();
   renderExam();
+  form.initial = examSnapshot();                 // to warn before leaving with unsaved changes
+  form.saving = false;
   show("visitForm");
   loadPreviousRecords(visit);
 }
+
+// ---------- unsaved changes ----------
+function examSnapshot() {
+  return JSON.stringify([normalizeTeeth(form.teeth), document.getElementById("examNotes").value.trim()]);
+}
+function isExamDirty() {
+  if (!form || form.saving || views.visitForm.style.display !== "block") return false;
+  flushPendingTap();
+  saveToothNote();
+  return examSnapshot() !== form.initial;
+}
+// "Discard this examination?" – asked before any way of leaving the exam page with unsaved work
+function askDiscard(onDiscard) {
+  const dlg = document.getElementById("leaveDialog");
+  dlg.hidden = false;
+  document.getElementById("leaveStay").focus();
+  const close = function () { dlg.hidden = true; go.removeEventListener("click", yes); stay.removeEventListener("click", close); };
+  const go = document.getElementById("leaveGo"), stay = document.getElementById("leaveStay");
+  const yes = function () { close(); onDiscard(); };
+  go.addEventListener("click", yes);
+  stay.addEventListener("click", close);
+}
+function resetExamHooks() {
+  cancelPendingTap();
+  visitReturnView = "record"; afterVisitSave = null; examAbsentHandler = null;
+  if (form) form.initial = examSnapshot();
+}
+// navigation bar: guard the exam page
+let leaveConfirmed = false;
+document.querySelector(".app-nav").addEventListener("click", function (e) {
+  const b = e.target.closest(".nav-item");
+  if (!b || leaveConfirmed || !isExamDirty()) return;
+  e.stopPropagation(); e.preventDefault();
+  askDiscard(function () { resetExamHooks(); leaveConfirmed = true; b.click(); leaveConfirmed = false; });
+}, true);
+document.getElementById("navStudents").addEventListener("click", function () {
+  if (views.visitForm.style.display === "block") resetExamHooks();
+  show("dashboard");
+});
+// closing the tab / reloading with unsaved exam work
+window.addEventListener("beforeunload", function (e) {
+  if (isExamDirty()) { e.preventDefault(); e.returnValue = ""; }
+});
 
 function renderExamStudent() {
   const s = currentStudent, appt = form.appointment;
@@ -807,8 +864,16 @@ function renderExam() {
   const chips = document.getElementById("statusChips");
   chips.innerHTML = "";
   STATUSES.forEach(function (st) {
-    const c = el("button", "chip" + (form.brush === st ? " brush b-" + condClass(st) : ""), st);
+    const c = el("button", "chip" + (form.brush === st ? " brush b-" + condClass(st) : ""));
     c.type = "button";
+    // colour swatch + abbreviation = the chart's legend
+    const dot = el("span", "dot" + (st === "Sound" ? " sound" : ""));
+    dot.style.background = st === "Sound" ? "#eaf7ee" : COND_COLOR[st];
+    dot.setAttribute("aria-hidden", "true");
+    c.appendChild(dot);
+    c.appendChild(document.createTextNode(st + (COND_ABBR[st] ? " (" + COND_ABBR[st] + ")" : "")));
+    c.setAttribute("aria-pressed", form.brush === st ? "true" : "false");
+    c.title = form.brush === st ? "Marking mode on – tap again to stop" : "Mark many teeth as " + st;
     const n = Object.values(form.teeth).filter(function (t) { return t.conditions.includes(st); }).length;
     if (n && st !== "Sound") c.appendChild(el("span", "cnt", "(" + n + ")"));
     c.addEventListener("click", function () {
@@ -933,6 +998,8 @@ function saveVisit() {
     errBox.textContent = "No teeth are marked. Tap save again to save anyway.";
     return;
   }
+  if (form.saving) return;                 // already saving: ignore a double tap
+  form.saving = true;
   btn.disabled = true;
   const label = btn.textContent;
   btn.textContent = "Saving...";
@@ -962,7 +1029,8 @@ function saveVisit() {
     show("record");
     return loadVisits();
   }).catch(function (err) {
-    errBox.textContent = "Could not save: " + err.message;
+    form.saving = false;
+    errBox.textContent = "Could not save: " + err.message + " Nothing was lost – try again.";
   }).finally(function () { btn.disabled = false; btn.textContent = label; });
 }
 
@@ -977,6 +1045,7 @@ function examAbsent() {
     return;
   }
   cancelPendingTap();
+  form.saving = true;                      // leaving on purpose: no "unsaved changes" question
   const fn = examAbsentHandler;
   examAbsentHandler = null; afterVisitSave = null;
   fn(form.appointment, document.getElementById("examNotes").value.trim());
@@ -996,6 +1065,10 @@ document.getElementById("addVisitBtn").addEventListener("click", function () {
   visitReturnView = "record"; afterVisitSave = null; examAbsentHandler = null; openVisitForm(null, {});
 });
 function leaveVisitForm() {
+  if (isExamDirty()) { askDiscard(doLeaveVisitForm); return; }
+  doLeaveVisitForm();
+}
+function doLeaveVisitForm() {
   cancelPendingTap();
   const back = visitReturnView;
   visitReturnView = "record"; afterVisitSave = null; examAbsentHandler = null;

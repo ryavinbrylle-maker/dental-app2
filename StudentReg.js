@@ -125,20 +125,63 @@ codeNumberInput.addEventListener("input", checkCodeTaken);
 loadCodes();
 setInterval(function () { if (!document.hidden) loadCodes(); }, 30000); // keep it up to date
 
+// ---------- inline validation (message under each field) ----------
+function setFieldError(id, msg) {
+  const input = document.getElementById(id);
+  const field = input.closest(".field");
+  let p = document.getElementById("err-" + id);
+  if (!p) {
+    p = document.createElement("p");
+    p.className = "field-error"; p.id = "err-" + id;
+    field.appendChild(p);
+  }
+  p.textContent = msg || "";
+  field.classList.toggle("invalid", Boolean(msg));
+  if (msg) { input.setAttribute("aria-invalid", "true"); input.setAttribute("aria-describedby", p.id); }
+  else { input.removeAttribute("aria-invalid"); }
+}
+function todayLocal() {
+  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
+birthdateInput.max = todayLocal();
+function validateForm() {
+  const errors = [];
+  const check = function (id, msg) { setFieldError(id, msg); if (msg) errors.push(id); };
+  const name = val("studentName");
+  check("studentName", !name ? "Please enter the student's name." :
+                       name.length < 2 ? "Please enter the full name." : "");
+  check("grade", val("grade") ? "" : "Please choose a grade.");
+  check("section", val("section") ? "" : (val("grade") ? "Please choose a section / strand." : "Choose a grade first."));
+  check("codeGender", codeGenderInput.value ? "" : "Choose M (male) or F (female).");
+  const code = readStudentCode();
+  check("codeNumber", !codeNumberInput.value.trim() ? "Enter the student's number, e.g. 1." :
+                      (code.error && codeGenderInput.value ? code.error : (checkCodeTaken() ? "" : "This code is already taken in this class.")));
+  const bd = val("birthdate");
+  check("birthdate", bd && bd > todayLocal() ? "The birthdate cannot be in the future." : "");
+  return errors;
+}
+// clear a field's message as soon as it is fixed
+["studentName", "grade", "section", "codeGender", "codeNumber", "birthdate"].forEach(function (id) {
+  const elx = document.getElementById(id);
+  ["input", "change"].forEach(function (ev) {
+    elx.addEventListener(ev, function () {
+      if (elx.closest(".field").classList.contains("invalid")) validateForm();
+    });
+  });
+});
+function showMessage(text, kind) { message.textContent = text; message.className = kind || ""; }
+
 form.addEventListener("submit", function (e) {
   e.preventDefault();
 
+  const errors = validateForm();
+  if (errors.length) {
+    showMessage("Please fix the " + (errors.length === 1 ? "field" : errors.length + " fields") + " marked in red.", "bad");
+    document.getElementById(errors[0]).focus();
+    return;
+  }
   const code = readStudentCode();
-  if (code.error) {
-    message.textContent = code.error;
-    codeNumberInput.focus();
-    return;
-  }
-  if (!checkCodeTaken()) {
-    message.textContent = codeTaken.textContent;
-    codeNumberInput.focus();
-    return;
-  }
 
   const student = {
     name: val("studentName"),
@@ -159,13 +202,15 @@ form.addEventListener("submit", function (e) {
   };
 
   if (window.location.protocol === "file:") {
-    message.textContent = "This form only saves online. Open it from your Vercel link.";
+    showMessage("This form only saves online. Open it from your Vercel link.", "bad");
     return;
   }
 
   const button = form.querySelector("button[type=submit]");
+  if (button.disabled) return;            // already sending: no double registration
   button.disabled = true;
-  message.textContent = "Saving...";
+  button.textContent = "Saving...";
+  showMessage("Saving...", "busy");
 
   fetch(API_URL, {
     method: "POST",
@@ -182,8 +227,8 @@ form.addEventListener("submit", function (e) {
       });
     })
     .then(function () {
-      message.textContent = student.name + " (" + student.grade + " – " + student.section +
-                            ", " + code.code + ") has been registered.";
+      showMessage("✓ " + student.name + " (" + student.grade + " – " + student.section +
+                  ", " + code.code + ") has been registered.", "ok");
       form.reset();
       fillSectionChoices();
       ageInput.value = "";
@@ -192,11 +237,12 @@ form.addEventListener("submit", function (e) {
     })
     .catch(function (err) {
       console.error(err);
-      message.textContent = "Could not save: " + err.message;
+      showMessage("Could not save: " + err.message, "bad");
       loadCodes(); // someone may have just taken that code
     })
     .finally(function () {
       button.disabled = false;
+      button.textContent = "Confirm";
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     });
 });

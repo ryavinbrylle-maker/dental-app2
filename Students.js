@@ -15,6 +15,7 @@ let knownIds = new Set();
 let newIds = new Set();
 let refreshTimer = null;
 let firstLoad = true;
+let statsTick = 0;
 let currentSchoolYear = null;   // e.g. "2026-2027" (from the server, or this device when offline)
 let offlineRoster = false;      // true while showing the copy saved on this device
 
@@ -166,6 +167,7 @@ function startAutoRefresh() {
   refreshTimer = setInterval(function () {
     if (document.hidden) return; // don't check while the tab is in the background
     loadStudents(true).catch(handleRefreshError);
+    if (++statsTick % 4 === 0) loadStats();        // about once a minute
   }, REFRESH_SECONDS * 1000);
 }
 function stopAutoRefresh() {
@@ -401,6 +403,8 @@ function setDashView(v) {
 
 function render() {
   const all = schoolStudents();
+  const hint = document.getElementById("groupsHint");
+  setTimeout(function () { hint.hidden = !groupsBox.querySelector("tr.row"); }, 0);
   const q = searchInput.value.trim();
   groupsBox.innerHTML = "";
   renderOldGradeBox();
@@ -592,9 +596,11 @@ function downloadCsv() {
 function showDashboard() {
   loginBox.style.display = "none";
   dashboard.style.display = "block";
-  document.querySelector(".hdr-right").style.visibility = "visible";
+  document.body.classList.add("signed-in");      // shows the navigation, status and log out
+  if (typeof show === "function") show("dashboard", true);   // also highlights "Students" in the menu
   startAutoRefresh();
   startStorage();
+  loadStats();
   if (typeof loadMatches === "function") loadMatches();   // SchoolYearDentalRecords.js
 }
 
@@ -639,13 +645,14 @@ function logout(reason) {
   stopAutoRefresh();
   clearToken();
   syncPanel.hidden = true;
-  document.querySelector(".hdr-right").style.visibility = "hidden";
+  document.body.classList.remove("signed-in");
   // Privacy: remove this device's copies – but never changes still waiting to upload
   StudentStorageInfo.clearCache().then(function (cleared) {
     if (!cleared) loginError.textContent = (reason ? reason + " " : "") +
       "Some records are still waiting to upload; they stay on this device and upload after you log in again.";
   }).catch(function () {});
   students = []; knownIds = new Set(); newIds = new Set();
+  statsBox.hidden = true; statsBox.innerHTML = "";
   groupsBox.innerHTML = "";
   searchInput.value = "";
   dashboard.style.display = "none";
@@ -673,6 +680,61 @@ document.getElementById("exportBtn").addEventListener("click", downloadCsv);
 searchInput.addEventListener("input", render);
 gradeFilter.addEventListener("change", render);
 
+// ---------- dashboard summary (real numbers from /api/stats; last copy kept for offline) ----------
+const statsBox = document.getElementById("statsBox");
+function loadStats() {
+  if (!token) return Promise.resolve();
+  const fromDevice = function () {
+    return StudentStorageInfo.getMeta("stats").then(function (saved) { if (saved) renderStats(saved, true); });
+  };
+  if (!navigator.onLine) return fromDevice();
+  return fetch("/api/stats?date=" + todayIso(), { headers: { "Authorization": "Bearer " + token } })
+    .then(readJson)
+    .then(function (d) {
+      d.saved_at = new Date().toISOString();
+      StudentStorageInfo.setMeta("stats", d).catch(function () {});
+      renderStats(d, false);
+    })
+    .catch(function (err) { if (err.status === 401) return; return fromDevice(); });
+}
+function statCard(label, value, sub, cls) {
+  const c = el("div", "stat" + (cls ? " " + cls : ""));
+  c.appendChild(el("span", "stat-label", label));
+  c.appendChild(el("b", "stat-value", value));
+  if (sub) c.appendChild(el("span", "stat-sub", sub));
+  return c;
+}
+function renderStats(d, fromDevice) {
+  statsBox.innerHTML = "";
+  statsBox.hidden = false;
+  const pct = d.students ? Math.round(d.examined_students / d.students * 100) : 0;
+  const t = d.today || {};
+  const waiting = (t["Waiting"] || 0) + (t["Late Arrival"] || 0);
+  statsBox.appendChild(statCard("Registered students", String(d.students), "School year " + d.school_year));
+  statsBox.appendChild(statCard("Examined this year", d.examined_students + " / " + d.students,
+    pct + "% of students · " + d.examinations + " exam" + (d.examinations === 1 ? "" : "s") + " recorded", "good"));
+  statsBox.appendChild(statCard("Today's appointments", String(t.total || 0),
+    t.total ? (t["Completed"] || 0) + " done · " + waiting + " waiting · " + (t["Absent"] || 0) + " absent" : "None scheduled yet",
+    waiting ? "warn" : ""));
+  const recent = el("div", "stat recent");
+  recent.appendChild(el("span", "stat-label", "Latest examinations"));
+  if (!d.recent || !d.recent.length) recent.appendChild(el("span", "stat-sub", "No examinations yet this school year."));
+  else {
+    const ul = el("ul");
+    d.recent.forEach(function (r) {
+      const li = el("li");
+      li.appendChild(el("b", "", (r.code ? r.code + " " : "") + r.name));
+      li.appendChild(el("span", "", " · " + [r.grade, r.section].filter(Boolean).join(" – ") + " · " + niceDate(r.visit_date)));
+      ul.appendChild(li);
+    });
+    recent.appendChild(ul);
+  }
+  statsBox.appendChild(recent);
+  if (fromDevice && d.saved_at) {
+    statsBox.appendChild(el("p", "stat-note", "Offline – summary from " + new Date(d.saved_at).toLocaleString()));
+  }
+}
+
 // ---------- StudentStorageInfo: upload status (header pill + panel) ----------
 const syncPill = document.getElementById("syncStatus");
 const syncPanel = document.getElementById("syncPanel");
@@ -692,6 +754,7 @@ function startStorage() {
 
 // Uploads finished: redraw whatever page is open from this device's storage
 function onStorageChange() {
+  loadStats();
   if (typeof refreshFromStorage === "function") refreshFromStorage();       // Appointments.js
   if (document.getElementById("record").style.display === "block" && currentStudent && typeof loadVisits === "function") {
     loadVisits();
@@ -804,7 +867,7 @@ window.addEventListener("online", function () { if (token) loadStudents(true).ca
 window.addEventListener("offline", function () { if (token) { liveText.classList.add("off"); liveText.textContent = "● Offline – changes are saved on this device"; } });
 
 // ---------- start: stay logged in after a page refresh (also without internet) ----------
-document.querySelector(".hdr-right").style.visibility = "hidden";
+document.body.classList.remove("signed-in");
 token = readToken();
 if (token && window.location.protocol !== "file:") {
   loadStudents()

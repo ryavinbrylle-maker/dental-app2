@@ -1,7 +1,7 @@
 // Service worker: keeps the dentist app's own files on this device so Students.html
 // opens without internet. Student data is NOT stored here (that is StudentStorageInfo,
 // in IndexedDB). /api/... requests are never cached.
-const CACHE = "dental-app-shell-v2";
+const CACHE = "dental-app-shell-v3";
 const SHELL = [
   "Students.html", "SchoolClasses.js", "StudentStorageInfo.js", "Students.js", "Dental.js", "Appointments.js",
   "SchoolYearDentalRecords.js", "StudentReg.html", "StudentReg.js"

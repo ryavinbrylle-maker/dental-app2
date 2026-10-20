@@ -538,6 +538,7 @@ function renderAbsent() {
   $("abDate").textContent = longDate(ab.date);
   $("abTotal").textContent = String(ab.list.length);
   $("abTotal").className = "ab-total" + (ab.list.length ? " has" : "");
+  $("abTotal").closest(".card").classList.toggle("ab-empty", !ab.list.length);
 
   const groups = new Map();
   ab.list.forEach(function (a) {

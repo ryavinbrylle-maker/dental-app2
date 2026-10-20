@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Dentist – Registered Students</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --teal: #336e7b;
@@ -439,16 +439,210 @@
     .sy-student { padding: 9px 10px; border-top: 1px solid #eef1f0; cursor: pointer; }
     .sy-student:hover { background: #f3f9f8; }
     #syRecord .visit { border-top: 1px solid #e3e8e6; padding: 10px 0; }
+
+    /* =====================================================================
+       DESIGN SYSTEM (Oct 2026 redesign) – one consistent look for every page.
+       Overrides the older rules above; colours meet WCAG AA contrast on white.
+       ===================================================================== */
+    :root {
+      --primary: #0e6f7a;  --primary-hover: #0a5862;  --primary-soft: #e7f3f4;
+      --teal: #0e6f7a;                                   /* old name, same colour */
+      --text: #1b2a2f;     --muted: #566a70;  --label: #566a70;
+      --border: #d5e0e2;   --border-strong: #b9c9cc;   --placeholder: #8a9ca1;
+      --bg: #f4f7f8;       --surface: #ffffff;         --soft: #f1f6f7;
+      --danger: #c62828;   --danger-soft: #fdecea;
+      --success: #1e7a4f;  --success-soft: #e6f4ec;
+      --warning: #8a5300;  --warning-soft: #fff4e0;
+      --radius: 10px;      --radius-sm: 8px;
+      --shadow: 0 1px 2px rgba(16,42,48,.06), 0 1px 3px rgba(16,42,48,.08);
+      --shadow-lg: 0 10px 30px rgba(16,42,48,.18);
+      --focus: 0 0 0 3px rgba(14,111,122,.35);
+    }
+    body { background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+    main { max-width: 1180px; padding: 24px 20px 64px; }
+    h1, h2, h3, h4 { color: var(--text); letter-spacing: -0.01em; }
+    .muted, .count { color: var(--muted); }
+
+    /* ----- header + navigation ----- */
+    header.app-header { position: sticky; top: 0; z-index: 15; background: var(--surface); color: var(--text);
+      padding: 10px 24px; border-bottom: 1px solid var(--border); box-shadow: var(--shadow); gap: 16px; flex-wrap: nowrap; }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-mark { width: 38px; height: 38px; border-radius: 10px; background: var(--primary); color: #fff;
+      display: grid; place-items: center; font-size: 20px; flex-shrink: 0; }
+    .brand-text h1 { margin: 0; font-size: 18px; line-height: 1.2; color: var(--text); white-space: nowrap; }
+    .brand-text span { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+    .app-nav { display: flex; gap: 4px; margin-right: auto; margin-left: 18px; }
+    .nav-item { height: 40px; padding: 0 14px; background: transparent; color: var(--muted); border-radius: var(--radius-sm);
+      font-weight: 700; font-size: 15px; }
+    .nav-item:hover { background: var(--soft); color: var(--text); }
+    .nav-item.active { background: var(--primary-soft); color: var(--primary); }
+    .hdr-logout { height: 36px; padding: 0 14px; background: transparent; color: var(--muted); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); font-size: 14px; }
+    .hdr-logout:hover { background: var(--soft); color: var(--text); }
+    body:not(.signed-in) .app-nav, body:not(.signed-in) .hdr-right { display: none; }
+    .sy-badge { background: var(--soft); color: var(--text); border: 1px solid var(--border); font-size: 13px; }
+    .sync-pill { height: 36px; font-size: 13px; border: 1px solid var(--border); }
+    .sync-pill.ok { color: var(--success); background: var(--success-soft); border-color: #b9dfc9; }
+    @media (max-width: 860px) {
+      header.app-header { flex-wrap: wrap; padding: 10px 14px; }
+      .app-nav { order: 3; width: 100%; margin: 0; overflow-x: auto; }
+      .nav-item { flex: 1 0 auto; }
+      .brand-text span { display: none; }
+    }
+
+    /* ----- page titles ----- */
+    .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 14px; }
+    .page-title { margin: 0 0 2px; font-size: 26px; }
+    .page-head .count { margin: 0; font-weight: 500; font-size: 14px; }
+    .bar { background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow); }
+    .bar h2 { color: var(--text); font-size: 22px; }
+    .bar .sub { color: var(--muted); opacity: 1; font-size: 13px; letter-spacing: .02em; }
+    .back { background: var(--soft); border: 1px solid var(--border); color: var(--text); }
+    .back:hover { background: var(--primary-soft); }
+
+    /* ----- cards, tables ----- */
+    .card { border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+    .card h3 { font-size: 18px; }
+    .table-wrap { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+    th { background: var(--soft); color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; }
+    th, td { border-bottom: 1px solid #e6edee; padding: 11px 14px; }
+    tbody tr.row:hover { background: var(--primary-soft); }
+    .section-box { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+    .section-head { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 16px; }
+    .section-head h3 { color: var(--text); }
+    tr.gender-row td { background: var(--soft); color: var(--muted); }
+    .tag { border-radius: 999px; padding: 2px 10px; font-size: 12.5px; }
+    .tag.yes { background: var(--success-soft); color: var(--success); }
+    .tag.no { background: var(--danger-soft); color: var(--danger); }
+    .tag.warn { background: var(--warning-soft); color: var(--warning); }
+    .empty { background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius); color: var(--muted); }
+
+    /* ----- form controls ----- */
+    input, select, textarea, input.box, select.box, textarea.box {
+      border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
+    input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: var(--focus); outline: none; }
+    input::placeholder, textarea::placeholder { color: var(--placeholder); }
+    label { color: var(--text); font-size: 14px; margin-bottom: 6px; }
+    .small-label { color: var(--muted); font-size: 12px; }
+
+    /* ----- buttons: primary / secondary / danger / disabled ----- */
+    button { border-radius: var(--radius-sm); background: var(--primary); }
+    button:hover { background: var(--primary-hover); }
+    button.secondary, .secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--border-strong); }
+    button.secondary:hover { background: var(--primary-soft); border-color: var(--primary); }
+    .btn-danger, .btn-absent { background: var(--danger); color: #fff; border: none; }
+    .btn-danger:hover, .btn-absent:hover { background: #a61f1f; }
+    .btn-complete { background: var(--success); }
+    .btn-complete:hover { background: #17633f; }
+    .mini-btn { border-radius: 999px; border: 1px solid var(--border-strong); color: var(--text); background: var(--surface); }
+    .mini-btn:hover { background: var(--soft); }
+    .mini-btn.danger { color: var(--danger); border-color: #f1b5ae; background: var(--danger-soft); }
+    button:disabled, button:disabled:hover { opacity: .55; cursor: not-allowed; }
+    button:focus-visible, .nav-item:focus-visible, .sec-card:focus-visible, .grade-tab:focus-visible,
+    .tooth:focus-visible, tr.row:focus-visible, a:focus-visible { outline: none; box-shadow: var(--focus); }
+
+    /* ----- toolbar ----- */
+    .toolbar { gap: 10px; margin-bottom: 16px; }
+    .toolbar input { height: 44px; }
+    .toolbar button { height: 44px; }
+
+    /* ----- dashboard summary ----- */
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.4fr); gap: 12px; margin-bottom: 18px; }
+    .stats[hidden] { display: none; }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .stat-label { font-size: 12.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .stat-value { font-size: 28px; line-height: 1.15; color: var(--text); }
+    .stat-sub { font-size: 13px; color: var(--muted); }
+    .stat.good { border-top: 3px solid var(--success); }
+    .stat.warn { border-top: 3px solid #d98e04; }
+    .stat.recent ul { list-style: none; margin: 4px 0 0; padding: 0; font-size: 13.5px; }
+    .stat.recent li { padding: 3px 0; border-bottom: 1px solid #edf2f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stat.recent li:last-child { border-bottom: none; }
+    .stat.recent li span { color: var(--muted); }
+    .stat-note { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--warning); }
+    @media (max-width: 980px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } .stat.recent { grid-column: 1 / -1; } }
+    @media (max-width: 600px) { .stats { grid-template-columns: 1fr 1fr; gap: 8px; } .stat { padding: 12px; } .stat-value { font-size: 22px; } }
+
+    /* ----- grade tabs + section cards ----- */
+    .grade-tab { border: 1px solid var(--border); box-shadow: var(--shadow); }
+    .grade-tab span { color: var(--muted); }
+    .grade-tab.on, .grade-tab.on:hover { background: var(--primary); border-color: var(--primary); }
+    .sec-card { border: 1px solid var(--border); box-shadow: var(--shadow); }
+    .sec-card b { color: var(--text); }
+    .sec-card:hover:not(:disabled) { border-color: var(--primary); background: var(--primary-soft); }
+
+    /* ----- tooth chart legend (colour dots on the condition chips) ----- */
+    .chip { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); display: inline-flex; align-items: center; gap: 8px; }
+    .chip:hover { background: var(--soft); }
+    .chip .dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+    .chip .dot.sound { box-shadow: inset 0 0 0 2px #43b97f; }
+    .chip.brush .dot { box-shadow: 0 0 0 2px #fff; }
+    .tooth.selected { box-shadow: 0 0 0 3px var(--primary); border-color: var(--primary); }
+
+    /* ----- dialogs, toast ----- */
+    .modal-box { border-radius: 12px; box-shadow: var(--shadow-lg); }
+    .modal-box.small { max-width: 440px; margin-top: 12vh; }
+    .modal-box.small h3 { margin: 0 0 8px; }
+    .toast { background: var(--text); border-radius: var(--radius); box-shadow: var(--shadow-lg); max-width: min(92vw, 420px); z-index: 30; }
+
+    /* ----- login ----- */
+    #login { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 28px; margin-top: 48px; }
+    .login-title { margin: 0 0 4px; font-size: 24px; text-align: center; }
+    #login .lock { font-size: 14px; color: var(--muted); }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+    /* ----- layout refinements ----- */
+    .ap-pickers select, .ap-pickers input { width: 100%; }
+    /* Absent Students: compact when nobody is absent (less scrolling before the queue) */
+    .ab-empty .ab-help, .ab-empty #abFilters, .ab-empty #abSearch { display: none; }
+    .ab-empty #abList p { margin: 0; }
+    @media (max-width: 860px) { header.app-header { position: static; } }
+    @media (max-width: 600px) {
+      .toolbar input { flex: 1 1 100%; }
+      .toolbar button { flex: 1 1 0; }
+      .page-title { font-size: 22px; }
+      main { padding: 16px 14px 56px; }
+    }
+
+    /* the sticky Save/Cancel bar on the exam page must never cover a tooth or field */
+    html { scroll-padding-bottom: 96px; scroll-padding-top: 12px; }
   </style>
 </head>
 <body>
   <header class="app-header">
-    <h1>Registered Students</h1>
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">&#129463;</span>
+      <div class="brand-text">
+        <h1>School Dental Clinic</h1>
+        <span>Dentist workspace</span>
+      </div>
+    </div>
+    <!-- main navigation (shown after login) -->
+    <nav class="app-nav" aria-label="Main">
+      <button type="button" class="nav-item" id="navStudents" data-nav="students">Students</button>
+      <button type="button" class="nav-item" id="openApptBtn" data-nav="appointments">Appointments</button>
+      <button type="button" class="nav-item" id="openSyBtn" data-nav="schoolyears">School Years</button>
+    </nav>
     <div class="hdr-right">
       <span class="sy-badge" id="syBadge" title="Active school year"></span>
       <button type="button" class="sync-pill" id="syncStatus" title="Records saved on this device and upload status">…</button>
+      <button type="button" class="hdr-logout" id="logoutBtn">Log out</button>
     </div>
   </header>
+  <!-- asked before leaving an examination with unsaved changes (Dental.js) -->
+  <div class="modal" id="leaveDialog" hidden role="dialog" aria-modal="true" aria-labelledby="leaveTitle">
+    <div class="modal-box small">
+      <h3 id="leaveTitle">Discard this examination?</h3>
+      <p class="muted">You marked teeth or wrote notes that are not saved yet. If you leave now they will be lost.</p>
+      <div class="save-row">
+        <button type="button" class="secondary" id="leaveStay">Keep editing</button>
+        <button type="button" class="btn-danger" id="leaveGo">Discard changes</button>
+      </div>
+    </div>
+  </div>
+  <!-- messages ("Saved", "Marked absent"...) – outside the pages so they show on every page -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <!-- StudentStorageInfo: upload status of records saved on this device -->
   <div class="modal" id="syncPanel" hidden>
@@ -468,6 +662,7 @@
   <main>
     <!-- Dentist login -->
     <section id="login">
+      <h2 class="login-title">Sign in</h2>
       <p class="lock">&#128274; Dentist access only</p>
       <label for="username">Username</label>
       <input type="text" id="username" placeholder="Dentist username" autocomplete="username">
@@ -479,26 +674,31 @@
 
     <!-- Student list -->
     <section id="dashboard">
+      <div class="page-head">
+        <div>
+          <h2 class="page-title">Students</h2>
+          <p class="count"><span id="count"></span> <span class="live" id="live">&#9679; Live &ndash; updates automatically</span></p>
+        </div>
+      </div>
+
+      <!-- Dashboard summary (real numbers from /api/stats) -->
+      <div class="stats" id="statsBox" hidden></div>
+
       <div class="toolbar">
-        <input type="text" id="search" placeholder="Search any student by name or code (e.g. M-1)">
+        <input type="search" id="search" placeholder="Search any student by name or code (e.g. M-1)" aria-label="Search students">
         <select id="gradeFilter" hidden aria-hidden="true">
           <option value="">All grades</option>
         </select>
-        <button type="button" id="openApptBtn">&#128197; Appointments</button>
-        <button type="button" class="secondary" id="openSyBtn">&#128450; School Years</button>
         <button type="button" class="secondary" id="refreshBtn">Refresh</button>
         <button type="button" class="secondary" id="exportBtn">Download CSV</button>
-        <button type="button" id="logoutBtn">Log out</button>
       </div>
-      <p class="count"><span id="count"></span> <span class="live" id="live">&#9679; Live &ndash; updates automatically</span></p>
-      <div class="toast" id="toast"></div>
 
       <!-- Returning students waiting for confirmation (SchoolYearDentalRecords.js) -->
       <div class="card match-card" id="matchBox" style="display:none"></div>
 
       <!-- Grade -> Section -> Students (built by Students.js) -->
       <div id="groups"></div>
-      <p class="count" style="margin-top:10px">Tap a student to open their dental record and add a check-up.</p>
+      <p class="count" id="groupsHint" style="margin-top:10px" hidden>Tap a student to open their dental record and add a check-up.</p>
     </section>
 
     <!-- ===== Dental appointments: Grade/Section -> queue -> Complete / Absent ===== -->
@@ -538,7 +738,7 @@
           <h3>&#128308; Absent Students <span class="ab-total" id="abTotal">0</span></h3>
           <span class="muted" id="abDate"></span>
         </div>
-        <p class="muted" style="margin:0 0 10px">If an absent student arrives late, find them here and tap
+        <p class="muted ab-help" style="margin:0 0 10px">If an absent student arrives late, find them here and tap
           <b>Mark as Arrived</b>. They go to the front of their section&rsquo;s queue &mdash; same appointment,
           and the absence stays in their history.</p>
         <div class="chips" id="abFilters" style="margin-bottom:10px"></div>
@@ -723,7 +923,7 @@
           <button type="button" id="segPermanent" class="on">Permanent</button>
           <button type="button" id="segPrimary">Primary</button>
         </div>
-        <span class="small-label">Mark many teeth with one condition (optional)</span>
+        <span class="small-label">Colour key &middot; tap a condition to mark many teeth with it (optional)</span>
         <div class="chips" id="statusChips" style="margin:6px 0 8px"></div>
         <p class="hint" id="brushHint"></p>
 

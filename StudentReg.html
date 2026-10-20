@@ -5,143 +5,109 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Registration</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
+    /* Same design system as the dentist pages (Students.html) */
     :root {
-      --teal: #336e7b;
-      --label: #7f8c88;
-      --border: #bccbc6;
-      --placeholder: #b5c7c0;
+      --primary: #0e6f7a; --primary-hover: #0a5862; --primary-soft: #e7f3f4;
+      --text: #1b2a2f; --muted: #566a70; --border: #c9d6d9; --placeholder: #8a9ca1;
+      --bg: #f4f7f8; --surface: #fff; --danger: #c62828; --danger-soft: #fdecea;
+      --success: #1e7a4f; --success-soft: #e6f4ec;
+      --radius: 10px; --radius-sm: 8px;
+      --shadow: 0 1px 2px rgba(16,42,48,.06), 0 1px 3px rgba(16,42,48,.08);
+      --focus: 0 0 0 3px rgba(14,111,122,.35);
     }
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: "DM Sans", Arial, sans-serif;
-      background: #ffffff;
-    }
-    header {
-      background: var(--teal);
-      padding: 24px 20px;
-    }
-    header h1 {
-      margin: 0;
-      color: #000;
-      font-size: 36px;
-      font-weight: 700;
-    }
-    form {
-      max-width: 480px;
-      margin: 0 auto;
-      padding: 32px 32px 48px;
-    }
-    h2 {
-      color: var(--teal);
-      font-size: 20px;
-      margin: 36px 0 18px;
-      padding-bottom: 6px;
-      border-bottom: 2px solid var(--border);
-    }
+    body { margin: 0; font-family: "DM Sans", Arial, sans-serif; background: var(--bg); color: var(--text);
+           font-size: 16px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+    header { background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+             padding: 14px 20px; display: flex; align-items: center; gap: 12px; }
+    .brand-mark { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); color: #fff;
+                  display: grid; place-items: center; font-size: 21px; flex-shrink: 0; }
+    header h1 { margin: 0; color: var(--text); font-size: 20px; font-weight: 700; line-height: 1.2; }
+    header p { margin: 0; color: var(--muted); font-size: 13px; }
+    form { max-width: 560px; margin: 24px auto 48px; padding: 28px; background: var(--surface);
+           border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+    @media (max-width: 600px) { form { margin: 0; border-radius: 0; border-left: none; border-right: none; padding: 20px 16px 32px; } }
+    h2 { color: var(--text); font-size: 18px; margin: 30px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
     h2:first-of-type { margin-top: 0; }
-    .field { margin-bottom: 22px; }
-    .row { display: flex; gap: 20px; }
+    .field { margin-bottom: 18px; }
+    .row { display: flex; gap: 16px; }
     .row .field { flex: 1; min-width: 0; }
-    label, .group-label {
-      display: block;
-      color: var(--label);
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
-    input[type="text"], input[type="tel"], input[type="date"],
-    input[type="number"], select, textarea {
-      width: 100%;
-      height: 50px;
-      padding: 0 16px;
-      font-family: inherit;
-      font-size: 17px;
-      color: #333;
-      border: 2px solid var(--border);
-      background: #fff;
-      outline: none;
-    }
-    textarea { height: auto; padding: 12px 16px; resize: vertical; }
+    label, .group-label { display: block; color: var(--text); font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .req { color: var(--danger); margin-left: 2px; }
+    input[type="text"], input[type="tel"], input[type="date"], input[type="number"], select, textarea {
+      width: 100%; height: 48px; padding: 0 14px; font-family: inherit; font-size: 16px; color: var(--text);
+      border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; outline: none; }
+    textarea { height: auto; padding: 12px 14px; resize: vertical; }
     input::placeholder, textarea::placeholder { color: var(--placeholder); }
-    input:focus, select:focus, textarea:focus { border-color: #000; }
-    select:invalid,
-    select:has(option[value=""]:checked) { color: var(--placeholder); }
-    select option { color: #333; }
-    input[readonly] { background: #f3f6f5; }
+    input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: var(--focus); }
+    select:invalid, select:has(option[value=""]:checked) { color: var(--placeholder); }
+    select:disabled { background: #f1f4f5; }
+    select option { color: var(--text); }
+    input[readonly] { background: #f1f4f5; }
+    /* inline validation */
+    .field.invalid input, .field.invalid select { border-color: var(--danger); background: #fffafa; }
+    .field-error { color: var(--danger); font-size: 14px; font-weight: 700; margin: 6px 0 0; }
+    .field-error:empty { display: none; }
 
     .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
-    .checks label, .consent label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 16px;
-      font-weight: 500;
-      color: #333;
-      margin: 0;
-    }
-    .checks input, .consent input { width: 18px; height: 18px; accent-color: var(--teal); }
+    .checks label, .consent label { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500; margin: 0; }
+    .checks input, .consent input { width: 20px; height: 20px; accent-color: var(--primary); }
     .consent label { align-items: flex-start; }
-    .consent input { flex-shrink: 0; margin-top: 3px; }
+    .consent input { flex-shrink: 0; margin-top: 2px; }
 
-    .actions { display: flex; justify-content: flex-end; margin-top: 30px; }
-    button {
-      background: var(--teal);
-      color: #c9d6d2;
-      border: none;
-      border-radius: 6px;
-      padding: 14px 30px;
-      font-family: inherit;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    button:hover { background: #285a65; }
-    .note { color: var(--label); font-size: 15px; margin: 0 0 24px; }
-    .code-preview {
-      margin: -8px 0 22px; font-size: 18px; font-weight: 700; color: var(--teal);
-    }
+    .actions { display: flex; justify-content: flex-end; margin-top: 26px; }
+    button { background: var(--primary); color: #fff; border: none; border-radius: var(--radius-sm);
+             padding: 0 32px; height: 50px; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
+    button:hover { background: var(--primary-hover); }
+    button:disabled { opacity: .6; cursor: progress; }
+    button:focus-visible { outline: none; box-shadow: var(--focus); }
+    @media (max-width: 600px) { .actions button { width: 100%; } }
+    .note { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+    .code-preview { margin: -6px 0 18px; font-size: 17px; font-weight: 700; color: var(--primary); }
     .code-preview.empty { color: var(--placeholder); }
-    .code-taken { margin: -14px 0 22px; font-weight: 700; color: #b3261e; min-height: 0; }
+    .code-taken { margin: -10px 0 18px; font-weight: 700; color: var(--danger); }
     .code-taken:empty { display: none; }
 
-    #message {
-      margin-top: 20px;
-      color: var(--teal);
-      font-weight: 700;
-      text-align: center;
-    }
+    #message { margin-top: 18px; padding: 12px 14px; border-radius: var(--radius-sm); font-weight: 700; text-align: center; }
+    #message:empty { display: none; }
+    #message.ok { background: var(--success-soft); color: var(--success); }
+    #message.bad { background: var(--danger-soft); color: var(--danger); }
+    #message.busy { background: var(--primary-soft); color: var(--primary); }
   </style>
 </head>
 <body>
   <header>
-    <h1>Student Registration</h1>
+    <span class="brand-mark" aria-hidden="true">&#129463;</span>
+    <div>
+      <h1>Student Registration</h1>
+      <p>School Dental Clinic</p>
+    </div>
   </header>
 
-  <form id="regForm">
+  <form id="regForm" novalidate>
 
-    <p class="note">Required: student name, grade, section / strand and student code. Fill in the rest if you know it &mdash; it can be completed later.</p>
+    <p class="note">Fields marked <span class="req">*</span> are required. Fill in the rest if you know it.</p>
 
     <!-- ===== STUDENT INFORMATION ===== -->
     <h2>Student Information</h2>
 
     <div class="field">
-      <label for="studentName">Student name</label>
+      <label for="studentName">Student name<span class="req" aria-hidden="true">*</span></label>
       <input type="text" id="studentName" placeholder="e.g Liam Prince" required>
     </div>
 
     <div class="row">
       <div class="field">
-        <label for="grade">Grade</label>
+        <label for="grade">Grade<span class="req" aria-hidden="true">*</span></label>
         <select id="grade" required>
           <option value="" disabled selected>Choose grade</option>
           <!-- filled from SchoolClasses.js -->
         </select>
       </div>
       <div class="field">
-        <label for="section">Section / Strand</label>
+        <label for="section">Section / Strand<span class="req" aria-hidden="true">*</span></label>
         <select id="section" required disabled>
           <option value="" disabled selected>Choose a grade first</option>
           <!-- the sections of the chosen grade (SchoolClasses.js) -->
@@ -150,10 +116,10 @@
     </div>
 
     <!-- Student code = gender letter + number, e.g. M-1 or F-2 -->
-    <span class="group-label">Student code</span>
+    <span class="group-label">Student code <span class="req" aria-hidden="true">*</span></span>
     <div class="row">
       <div class="field">
-        <label for="codeGender">Gender</label>
+        <label for="codeGender">Gender<span class="req" aria-hidden="true">*</span></label>
         <select id="codeGender" required>
           <option value="" disabled selected>Choose</option>
           <option value="M">M &ndash; Male</option>
@@ -161,7 +127,7 @@
         </select>
       </div>
       <div class="field">
-        <label for="codeNumber">Number</label>
+        <label for="codeNumber">Number<span class="req" aria-hidden="true">*</span></label>
         <input type="number" id="codeNumber" placeholder="e.g 1" min="1" max="999" step="1"
                inputmode="numeric" required>
       </div>
@@ -224,7 +190,7 @@
       <button type="submit">Confirm</button>
     </div>
 
-    <p id="message"></p>
+    <p id="message" role="status" aria-live="polite"></p>
   </form>
 
 
