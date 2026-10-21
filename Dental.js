@@ -22,14 +22,17 @@ const QUADRANT_NAMES = { Permanent: ["Upper right", "Upper left", "Lower right",
 const narrowScreen = window.matchMedia("(max-width: 700px)");
 
 const STATUSES = ["Sound", "Decayed", "Missing", "Filled", "Fractured", "Sealant",
-                  "Root Fragment", "Impacted", "Crowded", "Temporary Filled"];
+                  "Root Fragment", "Impacted", "Crowned", "Temporary Filled", "Unerupted"];
+// Older records may say "Crowded" – that condition was renamed "Crowned" (Oct 2026)
+const RENAMED = { "Crowded": "Crowned" };
 // Conditions that can be COMBINED on one tooth (e.g. Sealant + Decayed).
 // "Sound" = checked and healthy, so it replaces the others.
 const CONDITIONS = STATUSES.filter(function (c) { return c !== "Sound"; });
 const COND_COLOR = { Decayed: "#e5483f", Missing: "#6b7280", Filled: "#4a8af4", Fractured: "#f07c12", Sealant: "#43b97f",
-                     "Root Fragment": "#8b5a2b", Impacted: "#7c3aed", Crowded: "#0e9fb3", "Temporary Filled": "#a5c8ff" };
+                     "Root Fragment": "#8b5a2b", Impacted: "#7c3aed", Crowned: "#c9a227", "Temporary Filled": "#a5c8ff",
+                     Unerupted: "#cbd5e1" };
 const COND_ABBR = { Decayed: "D", Missing: "M", Filled: "F", Fractured: "Fx", Sealant: "S",
-                    "Root Fragment": "RF", Impacted: "Im", Crowded: "Cr", "Temporary Filled": "TF" };
+                    "Root Fragment": "RF", Impacted: "Im", Crowned: "Cr", "Temporary Filled": "TF", Unerupted: "U" };
 function condClass(c) { return String(c).replace(/\s+/g, ""); }   // "Root Fragment" -> "RootFragment"
 const TAP_DOUBLE_MS = 300;  // 2nd press within this time = double-tap
 const TAP_MOVE_PX = 10;     // finger moved more than this = not a plain tap
@@ -39,6 +42,7 @@ const TAP_MOVE_PX = 10;     // finger moved more than this = not a plain tap
 function toothInfo(t) {
   if (!t) return null;
   let list = Array.isArray(t.conditions) ? t.conditions : (t.status ? [t.status] : []);
+  list = list.map(function (c) { return RENAMED[c] || c; });
   list = STATUSES.filter(function (c) { return list.includes(c); }); // valid, no duplicates, fixed order
   if (list.length > 1) list = list.filter(function (c) { return c !== "Sound"; });
   const note = t.note || "";
