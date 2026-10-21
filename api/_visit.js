@@ -1,7 +1,9 @@
 // Shared rules for dental examinations ("visits"), used by api/visits.js and api/sync.js.
 
 export const STATUSES = ["Sound", "Decayed", "Missing", "Filled", "Fractured", "Sealant",
-                         "Root Fragment", "Impacted", "Crowded", "Temporary Filled"];
+                         "Root Fragment", "Impacted", "Crowned", "Temporary Filled", "Unerupted"];
+// "Crowded" was renamed "Crowned" (Oct 2026); changes saved offline on an older version are converted
+const RENAMED = { "Crowded": "Crowned" };
 
 // FDI tooth numbers: permanent 11-18, 21-28, 31-38, 41-48; primary 51-55, 61-65, 71-75, 81-85
 const VALID_TEETH = new Set();
@@ -35,6 +37,7 @@ export function cleanTeeth(teeth) {
     const t = teeth[k] || {};
     if (!VALID_TEETH.has(k)) return { error: "Unknown tooth number: " + k };
     let list = Array.isArray(t.conditions) ? t.conditions : (t.status ? [t.status] : []);
+    list = list.map(function (c) { return RENAMED[c] || c; });
     const bad = list.filter(function (c) { return !STATUSES.includes(c); });
     if (bad.length) return { error: "Unknown condition on tooth " + k + ": " + bad.join(", ") };
     list = STATUSES.filter(function (c) { return list.includes(c); });
