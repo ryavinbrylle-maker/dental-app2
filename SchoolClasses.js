@@ -2,6 +2,9 @@
 // Used by the registration form (StudentReg.html) and the dentist pages (Students.html).
 // Sections are listed in the school's own order; the app shows them in this order.
 // To add or rename a section, change it here only.
+// The school's name, printed at the top of every dental record PDF. Change it here.
+const SCHOOL_NAME = "School Dental Clinic";
+
 const SCHOOL_CLASSES = [
   { grade: "Grade 7", sections: [
     "St. Dominic Savio", "St. John Bosco", "St. Anthony of Padua", "St. Pius V",

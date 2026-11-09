@@ -105,6 +105,7 @@ function showToast(message) {
 function setSchoolYear(y) {
   if (y) currentSchoolYear = y;
   document.getElementById("syBadge").textContent = currentSchoolYear ? "SY " + currentSchoolYear : "";
+  if (typeof fillYearSelect === "function" && document.getElementById("yearSelect").hidden) fillYearSelect();
 }
 
 function loadStudents(quiet) {
@@ -274,7 +275,7 @@ function filtered() {
 
 const COLUMNS = ["Code", "Name", "Age", "Health alerts", "Consent", "Registered"];
 
-function studentRow(s) {
+function studentRow(s, navList) {
   const tr = document.createElement("tr");
   tr.className = "row" + (newIds.has(s.id) ? " new" : "");
   const code = studentCode(s);
@@ -288,7 +289,8 @@ function studentRow(s) {
   cell(tr, alerts.length ? tag(alerts.join(", "), "warn") : "—");
   cell(tr, s.consent ? tag("Yes", "yes") : tag("No", "no"));
   cell(tr, formatDate(s.registered_on));
-  tr.addEventListener("click", function () { openRecord(s); }); // in Dental.js
+  // in Dental.js: the record page can step to the previous / next student of this list
+  tr.addEventListener("click", function () { if (navList) openRecordFrom(s, navList); else openRecord(s); });
   return tr;
 }
 
@@ -300,12 +302,13 @@ function sectionBox(title, list, opts) {
   const head = document.createElement("div");
   head.className = "section-head";
   const h = document.createElement("h3"); h.textContent = title;
-  const males = list.filter(function (s) { return s.code_gender === "M"; }).length;
-  const females = list.filter(function (s) { return s.code_gender === "F"; }).length;
+  const all = opts.total || list;          // whole section (the table may show one page of it)
+  const males = all.filter(function (s) { return s.code_gender === "M"; }).length;
+  const females = all.filter(function (s) { return s.code_gender === "F"; }).length;
   const tally = document.createElement("span"); tally.className = "tally";
   tally.textContent = opts.unassigned
     ? list.length + " student" + (list.length === 1 ? "" : "s") + " – tap to add grade, section and code"
-    : males + " male · " + females + " female · " + list.length + " total";
+    : males + " male · " + females + " female · " + all.length + " total";
   head.appendChild(h); head.appendChild(tally);
   box.appendChild(head);
 
@@ -326,10 +329,49 @@ function sectionBox(title, list, opts) {
       td.textContent = lastGender === "M" ? "Male" : "Female";
       gr.appendChild(td); tbody.appendChild(gr);
     }
-    tbody.appendChild(studentRow(s));
+    tbody.appendChild(studentRow(s, opts.navList));
   });
   table.appendChild(tbody); wrap.appendChild(table); box.appendChild(wrap);
   return box;
+}
+
+// ---------- pagination (student tables) ----------
+const PAGE_SIZE = 25;
+function pageOf(list, page) {
+  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const p = Math.min(Math.max(1, page || 1), pages);
+  return { page: p, pages: pages, items: list.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE),
+           from: list.length ? (p - 1) * PAGE_SIZE + 1 : 0, to: Math.min(p * PAGE_SIZE, list.length), total: list.length };
+}
+function pager(pg, go) {
+  const nav = el("nav", "pager");
+  nav.setAttribute("aria-label", "Pages");
+  if (pg.pages <= 1) return nav;
+  const btn = function (label, page, disabled, aria) {
+    const b = el("button", "secondary pager-btn" + (page === pg.page ? " on" : ""), label);
+    b.type = "button"; b.disabled = disabled;
+    if (aria) b.setAttribute("aria-label", aria);
+    if (page === pg.page) b.setAttribute("aria-current", "page");
+    b.addEventListener("click", function () { go(page); });
+    nav.appendChild(b);
+  };
+  btn("‹ Prev", pg.page - 1, pg.page === 1, "Previous page");
+  for (let i = 1; i <= pg.pages; i++) {
+    if (pg.pages > 7 && i !== 1 && i !== pg.pages && Math.abs(i - pg.page) > 1) {
+      if (!nav.lastChild || nav.lastChild.className !== "pager-gap") nav.appendChild(el("span", "pager-gap", "…"));
+      continue;
+    }
+    btn(String(i), i, false, "Page " + i);
+  }
+  btn("Next ›", pg.page + 1, pg.page === pg.pages, "Next page");
+  nav.appendChild(el("span", "pager-info muted", pg.from + "–" + pg.to + " of " + pg.total));
+  return nav;
+}
+// After stepping through records with Previous / Next, the list opens on that student's page
+function rememberDashboardStudent(st) {
+  if (!dashView.section) return;
+  dashView.focusId = st.id;
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify(dashView)); } catch (e) { /* fine */ }
 }
 
 // ---------- remove Kinder–Grade 6 students (grades the school no longer uses) ----------
@@ -503,19 +545,45 @@ function render() {
   pick.addEventListener("change", function () { setDashView({ grade: grade, section: pick.value }); });
   bar.appendChild(pick);
   groupsBox.appendChild(bar);
-  groupsBox.appendChild(sectionBox(grade + " – " + section, list));
+  // page: remembered, or the page of the student last opened with Previous / Next
+  let page = dashView.page || 1;
+  if (dashView.focusId) {
+    const ix = list.findIndex(function (st) { return st.id === dashView.focusId; });
+    if (ix >= 0) page = Math.floor(ix / PAGE_SIZE) + 1;
+    delete dashView.focusId;
+  }
+  const pg = pageOf(list, page);
+  dashView.page = pg.page;
+  const go = function (n) { setDashView({ grade: grade, section: section, page: n }); };
+  groupsBox.appendChild(sectionBox(grade + " – " + section, pg.items, { total: list, navList: list }));
+  groupsBox.appendChild(pager(pg, go));
 }
 
 // Search: results from every grade and section, grouped
+let searchPage = { q: "", page: 1 };
 function renderSearchResults(all) {
+  const q = searchInput.value.trim();
   const list = filtered();
-  countText.textContent = list.length + " of " + all.length + " students match “" + searchInput.value.trim() + "”";
+  countText.textContent = list.length + " of " + all.length + " students match “" + q + "”";
   if (!list.length) { groupsBox.appendChild(el("p", "empty", "No students match your search.")); return; }
+  // one ordered list (grade -> section -> code), shown a page at a time, still grouped by class
   const groups = groupStudents(list);
-  groups.grades.forEach(function (g) {
-    g.sections.forEach(function (sec) { groupsBox.appendChild(sectionBox(g.grade + " – " + sec.section, sec.students)); });
+  const flat = [];
+  groups.grades.forEach(function (g) { g.sections.forEach(function (sec) { flat.push.apply(flat, sec.students); }); });
+  flat.push.apply(flat, groups.unassigned);
+  if (searchPage.q !== q) searchPage = { q: q, page: 1 };       // a new search starts on page 1
+  const pg = pageOf(flat, searchPage.page);
+  searchPage.page = pg.page;
+  const byClass = new Map();
+  pg.items.forEach(function (st) {
+    const k = hasPlace(st) ? st.grade + " – " + st.section : "Not yet placed";
+    if (!byClass.has(k)) byClass.set(k, []);
+    byClass.get(k).push(st);
   });
-  if (groups.unassigned.length) groupsBox.appendChild(sectionBox("Not yet placed", groups.unassigned, { unassigned: true }));
+  byClass.forEach(function (items, title) {
+    groupsBox.appendChild(sectionBox(title, items, { navList: flat, unassigned: title === "Not yet placed" }));
+  });
+  groupsBox.appendChild(pager(pg, function (n) { searchPage.page = n; render(); window.scrollTo(0, 0); }));
 }
 
 // Full student details as a grid (used on the student record page)
@@ -602,6 +670,7 @@ function showDashboard() {
   startStorage();
   loadStats();
   if (typeof loadMatches === "function") loadMatches();   // SchoolYearDentalRecords.js
+  if (typeof loadYearSelect === "function") loadYearSelect();
 }
 
 function login() {

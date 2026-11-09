@@ -16,7 +16,7 @@
 const SY_URL = "/api/schoolyears";
 const IDENTITY_URL = "/api/identity";
 
-const sy = { years: [], active: null, year: null, regs: [], cls: "", search: "" };
+const sy = { years: [], active: null, year: null, regs: [], cls: "", search: "", page: 1 };
 
 function syApi(url, options) {
   options = options || {};
@@ -65,6 +65,7 @@ function applyYears(data, fromDevice) {
   sy.years = data.years || [];
   sy.active = data.active;
   setSchoolYear(data.active);
+  fillYearSelect();
   syEl("sySub").textContent = "Active school year: " + data.active + (fromDevice ? " (saved copy – offline)" : "");
   const box = syEl("syYears");
   box.innerHTML = "";
@@ -88,7 +89,7 @@ function applyYears(data, fromDevice) {
 
 // ---------- one school year: registrations by grade / section ----------
 function openYear(year) {
-  sy.year = year; sy.cls = ""; sy.search = ""; syEl("sySearch").value = "";
+  sy.year = year; sy.cls = ""; sy.search = ""; sy.page = 1; syEl("sySearch").value = "";
   syEl("syArchiveCard").style.display = "block";
   syEl("syRecordCard").style.display = "none";
   syEl("syArchiveTitle").textContent = "SY " + year;
@@ -122,13 +123,13 @@ function renderYear(fromDevice) {
   });
   classes.sort(function (a, b) { return compareGrades(a.grade, b.grade) || compareSections(a.section, b.section); });
   const all = el("button", "chip" + (sy.cls ? "" : " on"), "All (" + sy.regs.length + ")"); all.type = "button";
-  all.addEventListener("click", function () { sy.cls = ""; renderYear(fromDevice); });
+  all.addEventListener("click", function () { sy.cls = ""; sy.page = 1; renderYear(fromDevice); });
   chips.appendChild(all);
   classes.forEach(function (c) {
     const n = sy.regs.filter(function (r) { return (r.grade || "?") + "|" + (r.section || "?") === c.key; }).length;
     const b = el("button", "chip" + (sy.cls === c.key ? " on" : ""), c.grade + " – " + c.section + " (" + n + ")");
     b.type = "button";
-    b.addEventListener("click", function () { sy.cls = c.key; renderYear(fromDevice); });
+    b.addEventListener("click", function () { sy.cls = c.key; sy.page = 1; renderYear(fromDevice); });
     chips.appendChild(b);
   });
 
@@ -143,10 +144,20 @@ function renderYear(fromDevice) {
     return code === q || String(r.name || "").toLowerCase().replace(/[\s-]/g, "").includes(q);
   });
   if (!rows.length) { list.appendChild(el("p", "muted", sy.regs.length ? "No students match." : "No registrations in this school year.")); return; }
+  if (sy.year !== sy.active) {
+    list.appendChild(el("p", "sy-readonly", "Archived school year – read only. Open a student to see or print their records, " +
+      "or to enrol them in SY " + (sy.active || "") + "."));
+  }
+  // one ordered list (class, then code), shown a page at a time
+  rows.sort(function (a, b) {
+    return compareGrades(a.grade || "", b.grade || "") || compareSections(a.section || "", b.section || "") || compareCodes(a, b);
+  });
+  const pg = pageOf(rows, sy.page);
+  sy.page = pg.page;
 
   // group by grade – section, students by code (M first, then F, numeric)
   const groups = new Map();
-  rows.forEach(function (r) {
+  pg.items.forEach(function (r) {
     const k = (r.grade || "No grade") + " – " + (r.section || "No section");
     if (!groups.has(k)) groups.set(k, { grade: r.grade || "", section: r.section || "", list: [] });
     groups.get(k).list.push(r);
@@ -172,6 +183,7 @@ function renderYear(fromDevice) {
     });
     list.appendChild(box);
   });
+  list.appendChild(pager(pg, function (n) { sy.page = n; renderYear(fromDevice); syEl("syArchiveCard").scrollIntoView({ block: "start" }); }));
 }
 
 // ---------- one archived record (read-only) ----------
@@ -215,6 +227,22 @@ function renderArchivedRecord(data, fromDevice) {
   info.appendChild(document.createTextNode(reg.birthdate ? niceDate(reg.birthdate) : "—"));
   body.appendChild(info);
 
+  // ---- print this student's dental record (all school years when online) ----
+  const actions = el("div", "sy-rec-actions");
+  const pdfBtn = el("button", "secondary", "🖨 Print dental record (PDF)"); pdfBtn.type = "button";
+  pdfBtn.addEventListener("click", function () {
+    const exams = navigator.onLine && reg.id
+      ? syApi("/api/visits?student_id=" + reg.id).then(function (d) { return d.visits || []; })
+          .catch(function () { return snap.examinations || []; })
+      : Promise.resolve(snap.examinations || []);
+    showRecordPdf(reg, exams, reg.school_year);                       // Dental.js
+  });
+  actions.appendChild(pdfBtn);
+  body.appendChild(actions);
+
+  // ---- returning student: enrol in the active school year (same student, no duplicate) ----
+  if (reg.id && sy.active && reg.school_year && reg.school_year !== sy.active) body.appendChild(enrollPanel(reg));
+
   const exams = (snap.examinations || []).slice().sort(function (a, b) {
     return String(b.visit_date).localeCompare(String(a.visit_date)) || (b.id || 0) - (a.id || 0);
   });
@@ -250,6 +278,95 @@ function renderArchivedRecord(data, fromDevice) {
     if (a.was_absent && a.status !== "Absent") p.appendChild(el("span", "muted", " (was absent first)"));
     if (a.notes) p.appendChild(el("span", "muted", " · " + a.notes));
     body.appendChild(p);
+  });
+}
+
+// ---------- enrol a returning student in the active school year ----------
+// Creates a NEW registration for the active year (new grade / section / code) linked to the
+// SAME student identity, so their dental history continues and no duplicate student is made.
+function enrollPanel(reg) {
+  const box = el("div", "card enroll-card");
+  box.appendChild(el("h4", "", "Enrol in school year " + sy.active));
+  box.appendChild(el("p", "muted", "For a returning student: their earlier dental records stay linked. " +
+    "Students can also register themselves with the QR code – they are matched automatically."));
+  const grid = el("div", "edit-grid");
+  const field = function (label, input) { const d = el("div"); d.appendChild(el("span", "small-label", label)); d.appendChild(input); grid.appendChild(d); return input; };
+  const g = field("New grade", el("select", "box"));
+  const sec = field("Section / Strand", el("select", "box"));
+  const gen = field("Gender", el("select", "box"));
+  const num = field("Number", el("input", "box"));
+  num.type = "number"; num.min = "1"; num.max = "999"; num.inputMode = "numeric";
+  [["M", "M – Male"], ["F", "F – Female"]].forEach(function (o) { const op = el("option", "", o[1]); op.value = o[0]; gen.appendChild(op); });
+  gen.value = reg.code_gender || "M";
+  // suggest the next grade up (Grade 8 -> Grade 9)
+  const idx = GRADE_LIST.indexOf(reg.grade);
+  const suggested = idx >= 0 && idx < GRADE_LIST.length - 1 ? GRADE_LIST[idx + 1] : GRADE_LIST[0];
+  GRADE_LIST.forEach(function (x) { const op = el("option", "", x); op.value = x; if (x === suggested) op.selected = true; g.appendChild(op); });
+  const fillSec = function () {
+    sec.innerHTML = "";
+    const first = el("option", "", "Choose section"); first.value = ""; sec.appendChild(first);
+    sectionsFor(g.value).forEach(function (x) { const op = el("option", "", x); op.value = x; sec.appendChild(op); });
+  };
+  g.addEventListener("change", fillSec); fillSec();
+  box.appendChild(grid);
+  const err = el("p", "error"); box.appendChild(err);
+  const btn = el("button", "", "Enrol in SY " + sy.active); btn.type = "button";
+  const row = el("div", "save-row"); row.appendChild(btn); box.appendChild(row);
+  btn.addEventListener("click", function () {
+    err.textContent = "";
+    if (!navigator.onLine) { err.textContent = "Enrolling needs internet."; return; }
+    if (!sec.value) { err.textContent = "Please choose the section / strand."; return; }
+    if (!/^[0-9]+$/.test(num.value) || +num.value < 1 || +num.value > 999) { err.textContent = "Enter the student's number (1–999)."; return; }
+    btn.disabled = true; btn.textContent = "Enrolling…";
+    syApi("/api/students", { method: "POST", body: JSON.stringify({ action: "enroll", from_student_id: reg.id,
+      grade: g.value, section: sec.value, codeGender: gen.value, codeNumber: num.value }) })
+      .then(function (r) {
+        showToast(reg.name + " enrolled in " + r.student.grade + " – " + r.student.section + " (SY " + r.school_year + ")");
+        box.innerHTML = "";
+        box.appendChild(el("p", "ok-line", "✓ Enrolled in " + r.student.grade + " – " + r.student.section + ", " +
+          r.student.code_gender + "-" + r.student.code_number + ". Their earlier dental records are linked."));
+        const open = el("button", "secondary", "Open current record"); open.type = "button";
+        open.addEventListener("click", function () { openRecord(r.student, "dashboard"); });
+        box.appendChild(open);
+        return loadStudents(true);
+      })
+      .catch(function (e) {
+        if (handleAuthError(e)) return;
+        err.textContent = e.message;
+        btn.disabled = false; btn.textContent = "Enrol in SY " + sy.active;
+      });
+  });
+  return box;
+}
+
+// ---------- school year selector on the Students page ----------
+// Shows the active year and every archived year; choosing an archived year opens its records.
+function fillYearSelect() {
+  const sel = syEl("yearSelect");
+  if (!sel) return;
+  const years = sy.years.length ? sy.years : (currentSchoolYear ? [{ id: currentSchoolYear, status: "active" }] : []);
+  sel.innerHTML = "";
+  years.forEach(function (y) {
+    const o = el("option", "", "SY " + y.id + (y.status === "active" ? " · active" : " · archived (read only)"));
+    o.value = y.id; if (y.status === "active") o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.hidden = !years.length;
+}
+function loadYearSelect() {
+  if (!token) return Promise.resolve();
+  const done = function (data) { if (data) { sy.years = data.years || []; sy.active = data.active; } fillYearSelect(); };
+  if (!navigator.onLine) return StudentStorageInfo.getArchive("years").then(function (r) { done(r && r.value); });
+  return syApi(SY_URL).then(function (data) { StudentStorageInfo.putArchive("years", data).catch(function () {}); done(data); })
+    .catch(function () { return StudentStorageInfo.getArchive("years").then(function (r) { done(r && r.value); }); });
+}
+if (syEl("yearSelect")) {
+  syEl("yearSelect").addEventListener("change", function () {
+    const y = this.value;
+    if (y === (sy.active || currentSchoolYear)) return;
+    openSchoolYears();
+    openYear(y);
+    this.value = sy.active || currentSchoolYear;      // the Students page always shows the active year
   });
 }
 
@@ -378,7 +495,7 @@ function decideMatch(m, decision, item) {
 syEl("openSyBtn").addEventListener("click", openSchoolYears);
 syEl("syBack").addEventListener("click", function () { show("dashboard"); });
 syEl("syRecordClose").addEventListener("click", function () { syEl("syRecordCard").style.display = "none"; });
-syEl("sySearch").addEventListener("input", function () { sy.search = syEl("sySearch").value; renderYear(!navigator.onLine); });
+syEl("sySearch").addEventListener("input", function () { sy.search = syEl("sySearch").value; sy.page = 1; renderYear(!navigator.onLine); });
 syEl("syStartBtn").addEventListener("click", startNewYear);
 setInterval(function () {
   if (token && !document.hidden && navigator.onLine && syEl("dashboard").style.display === "block") loadMatches();

@@ -622,6 +622,62 @@
     .ab-card:not(.ab-collapsed) .ab-summary { display: none; }
     .ab-card.ab-empty .ab-toggle { display: none; }
     #abList { max-height: min(420px, 55vh); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+    .auto-sound { margin: 2px 0 8px; font-size: 13.5px; }
+    .auto-sound:empty { display: none; }
+
+    /* ----- record page: actions, history, compare ----- */
+    .bar { flex-wrap: wrap; }
+    .bar-title { flex: 1 1 220px; min-width: 0; }
+    .bar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .rec-nav { display: flex; align-items: center; gap: 6px; }
+    .rec-nav[hidden] { display: none; }
+    .nav-btn { height: 38px; padding: 0 12px; font-size: 14px; }
+    .rec-pos { font-size: 13px; min-width: 52px; text-align: center; }
+    #recPdf { height: 40px; }
+    .hist-sub { margin: 2px 0 0; font-size: 13.5px; }
+    .hist-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .hist-order .chip { height: 34px; padding: 0 12px; font-size: 13.5px; }
+    .hist-order .chip.on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+    .sy-head { margin: 18px 0 6px; padding: 6px 10px; background: var(--soft); border-radius: 8px; font-size: 14px; font-weight: 700; color: var(--text); }
+    .sy-head:first-child { margin-top: 0; }
+    .sy-head span { color: var(--muted); font-weight: 500; }
+    .cmp-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .cmp-pick label { margin: 0; }
+    .cmp-pick select { width: 100%; }
+    .cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .cmp-col { min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+    .cmp-col h4 { margin: 0 0 2px; font-size: 15px; }
+    .cmp-col .teeth-scroll { margin-top: 8px; }
+    .cmp-dmft { margin: 8px 0 0; font-size: 14px; }
+    .tooth.cmp-changed { box-shadow: 0 0 0 3px #f59e0b; }
+    .cmp-table { width: 100%; margin-top: 12px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .cmp-table td, .cmp-table th { white-space: normal; }
+    .cmp-summary { margin: 12px 0 0; font-weight: 700; }
+    @media (max-width: 760px) { .cmp-grid, .cmp-pick { grid-template-columns: 1fr; } .bar-actions { width: 100%; } #recPdf { flex: 1 1 auto; } }
+    .btn-link { display: inline-flex; align-items: center; justify-content: center; height: 46px; padding: 0 22px; border-radius: var(--radius-sm);
+                font-weight: 700; font-size: 15px; text-decoration: none; cursor: pointer; }
+    .btn-link[hidden] { display: none; }
+    .pdf-actions { flex-wrap: wrap; }
+    /* ----- pagination ----- */
+    .pager { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0 18px; }
+    .pager:empty { display: none; }
+    .pager-btn { height: 36px; min-width: 40px; padding: 0 10px; font-size: 14px; }
+    .pager-btn.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .pager-gap { padding: 0 4px; color: var(--muted); }
+    .pager-info { margin-left: auto; font-size: 13.5px; }
+    /* ----- school years: selector, archive, enrol ----- */
+    .page-head { flex-wrap: wrap; }
+    .page-tools { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+    .year-pick { margin: 0; }
+    .year-pick .small-label { margin: 0 0 4px; }
+    .year-pick select { height: 44px; min-width: 230px; }
+    .active-tag { display: inline-block; vertical-align: middle; margin-left: 8px; font-size: 12px; font-weight: 700;
+                  color: var(--success); background: var(--success-soft); border-radius: 999px; padding: 3px 10px; }
+    .sy-readonly { margin: 0 0 10px; padding: 8px 12px; background: var(--warning-soft); color: var(--warning); border-radius: 8px; font-weight: 700; font-size: 14px; }
+    .sy-rec-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 12px; }
+    .enroll-card { border: 1px solid #b9dfc9; background: #f6fcf8; box-shadow: none; }
+    .enroll-card h4 { margin: 0 0 4px; }
+    .ok-line { color: var(--success); font-weight: 700; }
   </style>
 </head>
 <body>
@@ -653,6 +709,18 @@
       <div class="save-row">
         <button type="button" class="secondary" id="leaveStay">Keep editing</button>
         <button type="button" class="btn-danger" id="leaveGo">Discard changes</button>
+      </div>
+    </div>
+  </div>
+  <!-- dental record PDF (DentalRecordPDF.js) -->
+  <div class="modal" id="pdfDialog" hidden role="dialog" aria-modal="true" aria-labelledby="pdfTitle">
+    <div class="modal-box small">
+      <h3 id="pdfTitle">Dental record PDF</h3>
+      <p class="muted" id="pdfStatus">Preparing&hellip;</p>
+      <div class="save-row pdf-actions">
+        <button type="button" class="secondary" id="pdfClose">Close</button>
+        <a class="btn-link secondary" id="pdfDownload" hidden>Download PDF</a>
+        <button type="button" id="pdfOpen" hidden>Open &amp; print</button>
       </div>
     </div>
   </div>
@@ -691,8 +759,15 @@
     <section id="dashboard">
       <div class="page-head">
         <div>
-          <h2 class="page-title">Students</h2>
+          <h2 class="page-title">Students <span class="active-tag">Active school year</span></h2>
           <p class="count"><span id="count"></span> <span class="live" id="live">&#9679; Live &ndash; updates automatically</span></p>
+        </div>
+        <div class="page-tools">
+          <label class="year-pick">
+            <span class="small-label">School year</span>
+            <select id="yearSelect" class="box" hidden aria-label="School year"></select>
+          </label>
+          <a class="btn-link secondary" href="StudentReg.html" target="_blank" rel="noopener">&#65291; Register a student</a>
         </div>
       </div>
 
@@ -797,9 +872,17 @@
     <section id="record" class="view">
       <div class="bar">
         <button type="button" class="back" id="recordBack" aria-label="Back">&lsaquo;</button>
-        <div>
+        <div class="bar-title">
           <h2>Student Record</h2>
           <div class="sub" id="recordName"></div>
+        </div>
+        <div class="bar-actions">
+          <div class="rec-nav" id="recNav" hidden>
+            <button type="button" class="secondary nav-btn" id="recPrev" aria-label="Previous student">&lsaquo; Previous</button>
+            <span class="muted rec-pos" id="recPos"></span>
+            <button type="button" class="secondary nav-btn" id="recNext" aria-label="Next student">Next &rsaquo;</button>
+          </div>
+          <button type="button" id="recPdf">&#128424; Print dental record (PDF)</button>
         </div>
       </div>
 
@@ -816,10 +899,28 @@
 
       <div class="card">
         <div class="card-head">
-          <h3>Visit History</h3>
-          <button type="button" id="addVisitBtn">Add Visit</button>
+          <div>
+            <h3>Dental Record History</h3>
+            <p class="muted hist-sub">Every examination from every school year. Each one keeps the grade and section it was made in.</p>
+          </div>
+          <div class="hist-actions">
+            <div class="chips hist-order" id="histOrder" role="group" aria-label="Order"></div>
+            <button type="button" id="addVisitBtn">Add examination</button>
+          </div>
         </div>
         <div id="visitList"></div>
+      </div>
+
+      <!-- Compare two examinations (e.g. last school year vs this school year) -->
+      <div class="card" id="compareCard" hidden>
+        <div class="card-head">
+          <h3>Compare examinations</h3>
+        </div>
+        <div class="cmp-pick">
+          <label><span class="small-label">Earlier</span><select class="box" id="cmpA"></select></label>
+          <label><span class="small-label">Later</span><select class="box" id="cmpB"></select></label>
+        </div>
+        <div id="cmpBody"></div>
       </div>
 
       <div class="card">
@@ -940,6 +1041,7 @@
         <!-- the tooth map comes first; everything else is below it -->
         <div class="teeth-scroll" id="examMap"></div>
         <p class="paint-hint" id="paintHint"></p>
+        <p class="muted auto-sound" id="autoSoundHint" aria-live="polite"></p>
 
         <div class="seg" style="margin-top:6px">
           <button type="button" id="segPermanent" class="on">Permanent</button>
@@ -990,6 +1092,7 @@
   <script src="Students.js"></script>
   <script src="Dental.js"></script>
   <script src="Appointments.js"></script>
+  <script src="DentalRecordPDF.js"></script>
   <script src="SchoolYearDentalRecords.js"></script>
   <script>
     // Keep the app's files on this device so it opens without internet (sw.js)

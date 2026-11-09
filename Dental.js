@@ -57,6 +57,9 @@ function normalizeTeeth(teeth) {
   });
   return out;
 }
+function problemsCount(teeth) {
+  return Object.keys(teeth).filter(function (k) { return problemsOf(teeth[k]).length; }).length;
+}
 function problemsOf(info) {
   return info ? info.conditions.filter(function (c) { return c !== "Sound"; }) : [];
 }
@@ -195,7 +198,6 @@ function toothMap(teeth, opts) {
       if (opts.selectable) {
         if (opts.selected === n) b.classList.add("selected");
         if (opts.changed === n) b.classList.add("changed");
-        if (tapState.timer && tapState.tooth === n) b.classList.add("pending");
       } else {
         b.tabIndex = -1;
       }
@@ -208,13 +210,15 @@ function toothMap(teeth, opts) {
 
 // ---------- tap, double-tap and drag on the examination tooth map ----------
 // ONE code path for touch and mouse (pointer events):
-//   • tap                         -> Sound (after a short wait, in case a 2nd tap comes)
-//   • double-tap                  -> Decayed (the 2nd tap cancels the waiting Sound)
-//   • press + slide across teeth  -> every tooth touched becomes Sound
-//   • double-tap, keep the finger/mouse button down and slide -> every tooth touched becomes Decayed
-//   • with a condition chosen above ("marking mode"): tap toggles it, slide adds it
-// Teeth that already have problems are never turned back to Sound by a tap or a slide.
-let tapState = { tooth: null, timer: null, time: 0 };
+//   • tap (single click)              -> Decayed, straight away (no waiting)
+//   • double-tap (double click)       -> UNDO: the tooth goes back to unmarked
+//                                        (the 2nd tap clears it, so a double-tap never marks twice)
+//   • press + slide across teeth      -> every tooth touched becomes Decayed
+//   • double-tap, keep holding, slide -> every tooth touched is cleared (unmarked)
+//   • with a condition chosen in the colour key ("marking mode"): tap toggles it, slide adds it
+// Teeth left unmarked are saved as "Sound" when a NEW examination is saved (saveVisit).
+// Undo only changes this unsaved examination – saved examinations are never touched.
+let tapState = { tooth: null, time: 0 };   // last single tap (to recognise a double-tap)
 let gest = null;   // the press/drag in progress
 
 function examMapEl() { return document.getElementById("examMap"); }
@@ -225,33 +229,26 @@ function toothAt(x, y) {
 }
 function toothBtn(n) { return document.querySelector('#examMap [data-tooth="' + n + '"]'); }
 
-function flushPendingTap() {
-  if (!tapState.timer) return;
-  clearTimeout(tapState.timer);
-  const n = tapState.tooth;
-  tapState = { tooth: null, timer: null, time: 0 };
-  tapTooth(n);
-}
-function cancelPendingTap() {
-  if (tapState.timer) clearTimeout(tapState.timer);
-  tapState = { tooth: null, timer: null, time: 0 };
-}
+// (kept for the rest of the page: nothing waits any more, a tap acts immediately)
+function flushPendingTap() { /* nothing pending */ }
+function cancelPendingTap() { tapState = { tooth: null, time: 0 }; }
+
+const GEST_LABEL = { decayed: "Decayed", undo: "cleared (unmarked)" };
+function gestLabel(g) { return g.mode === "brush" ? form.brush : GEST_LABEL[g.mode]; }
 
 function paintTooth(n) {
   if (!gest || gest.painted.has(n)) return;
   gest.painted.add(n);
-  const info = toothInfo(form.teeth[n]);
   if (gest.mode === "decayed") addCondition(n, "Decayed");
   else if (gest.mode === "brush") addCondition(n, form.brush);
-  else if (!problemsOf(info).length) addCondition(n, "Sound");   // never wipe existing problems
-  else gest.skipped.push(n);
+  else if (gest.mode === "undo") clearTooth(n);
   const b = toothBtn(n);
   if (b) {
     decorateTooth(b, n, toothInfo(form.teeth[n]), { selectable: true });
     b.classList.add("painted");
   }
-  const what = gest.mode === "decayed" ? "Decayed" : gest.mode === "brush" ? form.brush : "Sound";
-  document.getElementById("paintHint").textContent = "Marking " + what + ": " + gest.painted.size + " teeth";
+  document.getElementById("paintHint").textContent =
+    (gest.mode === "undo" ? "Clearing: " : "Marking " + gestLabel(gest) + ": ") + gest.painted.size + " teeth";
 }
 
 function endGesture(cancelled) {
@@ -259,30 +256,32 @@ function endGesture(cancelled) {
   gest = null;
   examMapEl().classList.remove("painting");
   if (!g) return;
+  const hint = document.getElementById("paintHint");
   if (g.painting) {
-    const what = g.mode === "decayed" ? "Decayed" : g.mode === "brush" ? form.brush : "Sound";
-    form.selected = g.startTooth;
+    cancelPendingTap();
+    form.selected = g.mode === "undo" ? null : g.startTooth;
     renderExam();
-    document.getElementById("paintHint").textContent = "✓ " + (g.painted.size - g.skipped.length) + " teeth marked " + what +
-      (g.skipped.length ? " · kept " + g.skipped.join(", ") + " (already had a problem)" : "");
+    hint.textContent = "✓ " + g.painted.size + " teeth " + (g.mode === "undo" ? "cleared" : "marked " + gestLabel(g));
     return;
   }
-  if (cancelled) return;
-  if (g.moved) return;                       // finger slid inside one tooth: not a tap
+  if (cancelled || g.moved) return;          // scrolled, or the finger slid inside one tooth: not a tap
   const n = g.startTooth;
-  if (g.mode === "brush") { tapTooth(n); return; }
-  if (g.mode === "decayed") {                // plain double-tap (Decayed already applied on the 2nd press)
-    saveToothNote(); form.selected = n; form.changed = n; renderExam();
-    document.getElementById("paintHint").textContent = "✓ Tooth " + n + " marked Decayed";
+  saveToothNote();
+  if (g.mode === "brush") { cancelPendingTap(); tapTooth(n); return; }
+  if (g.mode === "undo") {                   // 2nd tap of a double-tap: back to unmarked
+    cancelPendingTap();
+    clearTooth(n);
+    form.selected = null; form.changed = n;
+    renderExam();
+    hint.textContent = "↺ Tooth " + n + " cleared – unmarked (it will be saved as Sound unless you mark it)";
     return;
   }
-  // single tap: wait briefly in case it becomes a double-tap
-  tapState = { tooth: n, time: Date.now(), timer: setTimeout(function () {
-    tapState = { tooth: null, timer: null, time: 0 };
-    tapTooth(n);
-  }, TAP_DOUBLE_MS) };
-  const b = toothBtn(n);
-  if (b) b.classList.add("pending");         // instant feedback while waiting
+  // single tap: Decayed right away; a 2nd tap soon after undoes it
+  addCondition(n, "Decayed");
+  tapState = { tooth: n, time: Date.now() };
+  form.selected = n; form.changed = n;
+  renderExam();
+  hint.textContent = "Tooth " + n + " marked Decayed · double-tap to undo";
 }
 
 function setupExamMapGestures() {
@@ -293,35 +292,21 @@ function setupExamMapGestures() {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     const n = b.dataset.tooth;
     const now = Date.now();
-    let mode = "sound";
-    if (form.brush) {
-      mode = "brush";
-      flushPendingTap();
-    } else if (tapState.timer && tapState.tooth === n && now - tapState.time <= TAP_DOUBLE_MS) {
-      mode = "decayed";                       // 2nd press of a double-tap
-      cancelPendingTap();
-    } else {
-      flushPendingTap();                      // finish a waiting tap on another tooth first
-    }
+    let mode = "decayed";
+    if (form.brush) mode = "brush";
+    else if (tapState.tooth === n && now - tapState.time <= TAP_DOUBLE_MS) mode = "undo";   // 2nd press of a double-tap
+    else cancelPendingTap();
     saveToothNote();
     gest = { id: e.pointerId, type: e.pointerType, x: e.clientX, y: e.clientY, startTooth: n, mode: mode,
-             painting: false, moved: false, painted: new Set(), skipped: [] };
-    if (mode === "decayed") {
-      // Decayed right away (visible feedback); sliding from here adds more Decayed teeth
-      gest.painted.add(n);
-      addCondition(n, "Decayed");
-      decorateTooth(b, n, toothInfo(form.teeth[n]), { selectable: true });
-      b.classList.add("painted");
-      document.getElementById("paintHint").textContent = "Decayed – keep holding and slide to mark more teeth";
-    }
+             painting: false, moved: false, painted: new Set() };
     if (e.pointerType === "mouse") e.preventDefault();   // no text selection while dragging
   });
-  // After a double-tap the page must not scroll or zoom while the finger slides
+  // After a double-tap (undo) the page must not scroll or zoom while the finger slides
   map.addEventListener("touchstart", function (e) {
-    if (gest && gest.mode === "decayed") e.preventDefault();
+    if (gest && gest.mode === "undo") e.preventDefault();
   }, { passive: false });
   document.addEventListener("touchmove", function (e) {
-    if (gest && (gest.painting || gest.mode === "decayed")) e.preventDefault();
+    if (gest && (gest.painting || gest.mode === "undo")) e.preventDefault();
   }, { passive: false });
 
   document.addEventListener("pointermove", function (e) {
@@ -374,13 +359,15 @@ function recordSubtitle(s) {
   return [s.name, place, studentCode(s)].filter(Boolean).join(" · ");
 }
 
-function openRecord(student, returnView) {
+function openRecord(student, returnView, keepNav) {
   recordReturnView = returnView || "dashboard";
+  if (!keepNav) recordNav = null;
   currentStudent = student;
   visits = [];
   fillStudentHeader();
   fillEditForm();
   renderRecord();
+  renderRecordNav();
   show("record");
   loadVisits();
   if (typeof loadApptHistory === "function") loadApptHistory(); // Appointments.js
@@ -638,15 +625,50 @@ function classLabel(v) {
     .filter(Boolean).join(" · ");
 }
 
+// History order (newest first by default; remembered on this device)
+let histOrder = (function () { try { return localStorage.getItem("histOrder") || "newest"; } catch (e) { return "newest"; } })();
+function renderHistOrder() {
+  const box = document.getElementById("histOrder");
+  box.innerHTML = "";
+  [["newest", "Newest first"], ["oldest", "Oldest first"]].forEach(function (o) {
+    const c = el("button", "chip" + (histOrder === o[0] ? " on" : ""), o[1]);
+    c.type = "button"; c.setAttribute("aria-pressed", histOrder === o[0] ? "true" : "false");
+    c.addEventListener("click", function () {
+      histOrder = o[0];
+      try { localStorage.setItem("histOrder", histOrder); } catch (e) { /* fine */ }
+      renderVisitList();
+    });
+    box.appendChild(c);
+  });
+}
+function examsInDateOrder() {
+  return visits.slice().sort(function (a, b) {
+    return String(dateOnly(a.visit_date)).localeCompare(String(dateOnly(b.visit_date))) || (a.id || 0) - (b.id || 0);
+  });
+}
+
 function renderVisitList() {
   const list = document.getElementById("visitList");
   list.innerHTML = "";
+  renderHistOrder();
+  renderCompare();
   if (!visits.length) {
-    list.appendChild(el("p", "muted", "No examinations yet. Tap “Add Visit” after the check-up."));
+    list.appendChild(el("p", "muted", "No examinations yet. Tap “Add examination” after the check-up."));
     return;
   }
   const tl = el("div", "timeline");
-  visits.forEach(function (v) {
+  const ordered = histOrder === "oldest" ? examsInDateOrder() : examsInDateOrder().reverse();
+  let lastGroup = null;
+  ordered.forEach(function (v) {
+    // a heading for every school year (with the class the student was in that year)
+    const group = (v.school_year || "") + "|" + (v.grade || "") + "|" + (v.section || "");
+    if (group !== lastGroup) {
+      lastGroup = group;
+      const h = el("div", "sy-head", v.school_year ? "School year " + v.school_year : "School year not recorded");
+      const cls = [v.grade, v.section].filter(Boolean).join(" – ");
+      if (cls) h.appendChild(el("span", "", "  ·  " + cls));
+      tl.appendChild(h);
+    }
     const item = el("div", "visit");
     const top = el("div", "visit-top");
     const when = el("div", "when");
@@ -695,6 +717,150 @@ function deleteVisit(v) {
     .then(function () { showToast("Examination deleted"); return loadVisits(); })
     .catch(function (err) { if (!handleAuthError(err)) showToast(err.message); });
 }
+
+// ---------- compare two examinations (e.g. last school year vs this school year) ----------
+function examLabel(v) {
+  return niceDate(v.visit_date) + " · SY " + (v.school_year || "?") + " · " + ([v.grade, v.section].filter(Boolean).join(" – ") || "—");
+}
+let cmpPick = { a: null, b: null, student: null, latest: null };
+function renderCompare() {
+  const card = document.getElementById("compareCard");
+  const exams = examsInDateOrder();
+  if (exams.length < 2) { card.hidden = true; return; }
+  card.hidden = false;
+  const key = function (v) { return v.uid || ("srv-" + v.id); };
+  const latest = exams[exams.length - 1];
+  if (cmpPick.student !== currentStudent || cmpPick.latest !== key(latest) || !exams.some(function (v) { return key(v) === cmpPick.a; }) ||
+      !exams.some(function (v) { return key(v) === cmpPick.b; })) {
+    // default: the latest exam vs the latest exam of an EARLIER school year (else the one before it)
+    const older = exams.slice(0, -1).reverse();
+    const prevYear = older.find(function (v) { return v.school_year && v.school_year !== latest.school_year; });
+    cmpPick = { a: key(prevYear || older[0]), b: key(latest), student: currentStudent, latest: key(latest) };
+  }
+  ["cmpA", "cmpB"].forEach(function (id, i) {
+    const sel = document.getElementById(id);
+    sel.innerHTML = "";
+    exams.forEach(function (v) {
+      const o = el("option", "", examLabel(v)); o.value = key(v);
+      if (key(v) === (i ? cmpPick.b : cmpPick.a)) o.selected = true;
+      sel.appendChild(o);
+    });
+  });
+  const A = exams.find(function (v) { return key(v) === cmpPick.a; });
+  const B = exams.find(function (v) { return key(v) === cmpPick.b; });
+  const ta = normalizeTeeth(A.teeth), tb = normalizeTeeth(B.teeth);
+  const nums = Array.from(new Set(Object.keys(ta).concat(Object.keys(tb)))).sort();
+  const changed = nums.filter(function (n) {
+    return JSON.stringify((ta[n] || { conditions: [] }).conditions) !== JSON.stringify((tb[n] || { conditions: [] }).conditions);
+  });
+  const body = document.getElementById("cmpBody");
+  body.innerHTML = "";
+  const grid = el("div", "cmp-grid");
+  [[A, ta], [B, tb]].forEach(function (pair) {
+    const v = pair[0], t = pair[1];
+    const col = el("div", "cmp-col");
+    col.appendChild(el("h4", "", niceDate(v.visit_date)));
+    col.appendChild(el("p", "muted", "SY " + (v.school_year || "?") + " · " + ([v.grade, v.section].filter(Boolean).join(" – ") || "—")));
+    ["Permanent", "Primary"].forEach(function (d) {
+      if (!hasAny(t, d)) return;
+      const sc = el("div", "teeth-scroll");
+      const map = toothMap(t, { dentition: d, mini: true });
+      changed.forEach(function (n) { const b = map.querySelector('[data-tooth="' + n + '"]'); if (b) b.classList.add("cmp-changed"); });
+      sc.appendChild(map);
+      col.appendChild(sc);
+    });
+    const c = dmftCounts(t);
+    col.appendChild(el("p", "cmp-dmft", "DMFT " + (c.d + c.m + c.f) + "  (D " + c.d + " · M " + c.m + " · F " + c.f + ")"));
+    grid.appendChild(col);
+  });
+  body.appendChild(grid);
+  const ca = dmftCounts(ta), cb = dmftCounts(tb);
+  const diff = (cb.d + cb.m + cb.f) - (ca.d + ca.m + ca.f);
+  body.appendChild(el("p", "cmp-summary", changed.length
+    ? changed.length + (changed.length === 1 ? " tooth" : " teeth") + " changed (outlined in orange) · DMFT " + (diff > 0 ? "up by " + diff : diff < 0 ? "down by " + (-diff) : "unchanged")
+    : "No differences between these two examinations."));
+  if (changed.length) {
+    const wrap = el("div", "table-wrap cmp-table");
+    const table = el("table");
+    const head = el("tr");
+    ["Tooth", niceDate(A.visit_date), niceDate(B.visit_date)].forEach(function (h) { head.appendChild(el("th", "", h)); });
+    const thead = el("thead"); thead.appendChild(head); table.appendChild(thead);
+    const tbody = el("tbody");
+    changed.forEach(function (n) {
+      const tr = el("tr");
+      tr.appendChild(el("td", "", n));
+      tr.appendChild(el("td", "", ta[n] ? ta[n].conditions.join(" + ") : "not recorded"));
+      tr.appendChild(el("td", "", tb[n] ? tb[n].conditions.join(" + ") : "not recorded"));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody); wrap.appendChild(table); body.appendChild(wrap);
+  }
+}
+document.getElementById("cmpA").addEventListener("change", function () { cmpPick.a = this.value; renderCompare(); });
+document.getElementById("cmpB").addEventListener("change", function () { cmpPick.b = this.value; renderCompare(); });
+
+// ---------- previous / next student (in the list the record was opened from) ----------
+let recordNav = null;     // { list: [students], index }
+function openRecordFrom(student, list) {
+  recordNav = list && list.length > 1 ? { list: list.slice(), index: Math.max(0, list.indexOf(student)) } : null;
+  openRecord(student, "dashboard", true);
+}
+function renderRecordNav() {
+  const box = document.getElementById("recNav");
+  if (!recordNav || recordNav.list[recordNav.index] !== currentStudent) { box.hidden = true; return; }
+  box.hidden = false;
+  document.getElementById("recPos").textContent = (recordNav.index + 1) + " of " + recordNav.list.length;
+  document.getElementById("recPrev").disabled = recordNav.index === 0;
+  document.getElementById("recNext").disabled = recordNav.index === recordNav.list.length - 1;
+}
+function stepRecord(delta) {
+  if (!recordNav) return;
+  const i = recordNav.index + delta;
+  if (i < 0 || i >= recordNav.list.length) return;
+  recordNav.index = i;
+  if (typeof rememberDashboardStudent === "function") rememberDashboardStudent(recordNav.list[i]);   // Students.js
+  openRecord(recordNav.list[i], recordReturnView, true);
+}
+document.getElementById("recPrev").addEventListener("click", function () { stepRecord(-1); });
+document.getElementById("recNext").addEventListener("click", function () { stepRecord(1); });
+
+// ---------- printable dental record (DentalRecordPDF.js) ----------
+let pdfUrl = null;
+function showRecordPdf(student, examsPromise, schoolYear) {
+  const dlg = document.getElementById("pdfDialog");
+  const status = document.getElementById("pdfStatus");
+  const dl = document.getElementById("pdfDownload"), open = document.getElementById("pdfOpen");
+  dlg.hidden = false;
+  dl.hidden = true; open.hidden = true;
+  status.textContent = "Preparing the dental record of " + (student.name || "the student") + "…";
+  document.getElementById("pdfClose").focus();
+  if (pdfUrl) { URL.revokeObjectURL(pdfUrl); pdfUrl = null; }
+  return Promise.resolve(examsPromise).then(function (exams) {
+    const bytes = DentalRecordPDF.build({ student: student, exams: exams, schoolYear: schoolYear });
+    pdfUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    dl.href = pdfUrl;
+    dl.download = DentalRecordPDF.fileName(student);
+    dl.hidden = false; open.hidden = false;
+    status.textContent = "Ready: " + exams.length + " examination" + (exams.length === 1 ? "" : "s") +
+      " included. Download it, or open it to print.";
+  }).catch(function (err) {
+    console.error(err);
+    status.textContent = "Could not make the PDF: " + err.message;
+  });
+}
+document.getElementById("pdfClose").addEventListener("click", function () { document.getElementById("pdfDialog").hidden = true; });
+document.getElementById("pdfOpen").addEventListener("click", function () {
+  if (!pdfUrl) return;
+  const w = window.open(pdfUrl, "_blank");
+  if (!w) showToast("Allow pop-ups for this site to open the PDF, or use Download PDF.");
+});
+document.getElementById("recPdf").addEventListener("click", function () {
+  const s = currentStudent;
+  if (!s) return;
+  // make sure every school year's examinations are on the device first (works offline too)
+  const exams = fetchHistory(s).then(function () { return readHistory(s); }).then(function (h) { return h.visits; });
+  showRecordPdf(s, exams, (typeof currentSchoolYear !== "undefined" && currentSchoolYear) || s.school_year);
+});
 
 // ---------- Dental Examination page (Record Tooth-Map Exam) ----------
 // opts.appointment: the appointment being examined (appointment mode: Save & complete / Absent)
@@ -889,7 +1055,7 @@ function renderExam() {
   });
 
   document.getElementById("brushHint").textContent = !form.brush
-    ? "Tap = Sound · Double-tap = Decayed · Hold and slide to mark several teeth · Tap a marked tooth to edit it."
+    ? "Tap = Decayed · Double-tap = undo (unmarked) · Slide across teeth to mark several Decayed · Teeth you don't mark are saved as Sound."
     : form.brush === "Sound"
       ? "Marking mode: tap or slide across teeth to mark them Sound (clears other conditions). Tap “Sound” again to stop."
       : "Marking mode: tap teeth to add " + form.brush + " (tap again to remove), or slide across teeth to add it. Tap “" + form.brush + "” again to stop.";
@@ -904,6 +1070,7 @@ function renderExam() {
   }));
   form.changed = null; // the "just changed" flash plays once
   renderToothPanel();
+  renderAutoSoundHint();
 }
 
 // ----- tooth condition edits (never mutually exclusive, except Sound) -----
@@ -935,8 +1102,8 @@ function tapTooth(n) {
     if (form.brush === "Sound") { if (has) clearTooth(n); else addCondition(n, "Sound"); }
     else if (has) removeCondition(n, form.brush);
     else addCondition(n, form.brush);
-  } else if (!problemsOf(toothInfo(form.teeth[n])).length) {
-    addCondition(n, "Sound");
+  } else {
+    addCondition(n, "Decayed");
   }
   renderExam();
 }
@@ -987,6 +1154,36 @@ function saveToothNote() {
 }
 
 // Save: on this device FIRST (instant, works offline), then uploaded automatically.
+// ---------- automatic "Sound" for teeth that were not marked ----------
+// Applies only when a NEW examination is saved. The dentition(s) that were examined are
+// completed: every tooth of that chart without a condition is saved as "Sound". Teeth that
+// already have a condition keep it. Saved (older) examinations are never changed by this.
+function examinedDentitions(teeth) {
+  const used = ["Permanent", "Primary"].filter(function (d) { return hasAny(teeth, d); });
+  return used.length ? used : [form.dentition];
+}
+function unmarkedTeeth(teeth) {
+  const out = [];
+  examinedDentitions(teeth).forEach(function (d) {
+    TEETH[d].forEach(function (row) {
+      row.forEach(function (num) { if (!teeth[String(num)]) out.push(String(num)); });
+    });
+  });
+  return out;
+}
+function withAutoSound(teeth) {
+  const full = JSON.parse(JSON.stringify(teeth));
+  unmarkedTeeth(teeth).forEach(function (n) { full[n] = { conditions: ["Sound"], note: "" }; });
+  return full;
+}
+function renderAutoSoundHint() {
+  const box = document.getElementById("autoSoundHint");
+  if (!box || !form) return;
+  if (editingVisit) { box.textContent = ""; return; }
+  const n = unmarkedTeeth(normalizeTeeth(form.teeth)).length;
+  box.textContent = n ? (n === 1 ? "1 tooth is" : n + " teeth are") + " not marked – saved as Sound when you save." : "";
+}
+
 function saveVisit() {
   flushPendingTap();
   saveToothNote();
@@ -997,9 +1194,11 @@ function saveVisit() {
   const notes = document.getElementById("examNotes").value.trim();
   const appt = form.appointment;
 
-  if (!editingVisit && !Object.keys(teeth).length && !form.confirmEmpty) {
+  if (!editingVisit && !problemsCount(teeth) && !form.confirmEmpty) {
     form.confirmEmpty = true;
-    errBox.textContent = "No teeth are marked. Tap save again to save anyway.";
+    const n = unmarkedTeeth(teeth).length;
+    errBox.textContent = "No problems marked – " + (n ? "all " + n + " unmarked teeth will be saved as Sound. " : "") +
+                         "Tap save again to confirm.";
     return;
   }
   if (form.saving) return;                 // already saving: ignore a double tap
@@ -1013,7 +1212,7 @@ function saveVisit() {
     job = StudentStorageInfo.updateVisit(editingVisit, { teeth: teeth, exam_notes: notes }, student)
       .then(function (v) { return { visit: v }; });
   } else {
-    job = StudentStorageInfo.createVisit(student, { visit_date: form.date, teeth: teeth, exam_notes: notes })
+    job = StudentStorageInfo.createVisit(student, { visit_date: form.date, teeth: withAutoSound(teeth), exam_notes: notes })
       .then(function (v) {
         if (!appt) return { visit: v };
         return StudentStorageInfo.changeAppointment(appt, { status: "Completed", notes: notes, visit_uid: v.client_uid },
