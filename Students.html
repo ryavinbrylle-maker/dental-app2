@@ -655,7 +655,10 @@
     .cmp-dmft { margin: 8px 0 0; font-size: 14px; }
     .tooth.cmp-changed { box-shadow: 0 0 0 3px #f59e0b; }
     .cmp-table { width: 100%; margin-top: 12px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-    .cmp-table td, .cmp-table th { white-space: normal; }
+    .cmp-table td, .cmp-table th { white-space: normal; padding: 6px 12px; font-size: 14px; }
+    .cmp-table { max-height: 320px; overflow-y: auto; }
+    .cmp-table thead th { position: sticky; top: 0; }
+    .cmp-toggle { margin-top: 10px; height: 36px; padding: 0 16px; font-size: 14px; font-weight: 600; }
     .cmp-summary { margin: 12px 0 0; font-weight: 700; }
     @media (max-width: 760px) { .cmp-grid, .cmp-pick { grid-template-columns: 1fr; } .bar-actions { width: 100%; } #recPdf { flex: 1 1 auto; } }
     .btn-link { display: inline-flex; align-items: center; justify-content: center; height: 46px; padding: 0 22px; border-radius: var(--radius-sm);

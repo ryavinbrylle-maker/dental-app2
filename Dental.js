@@ -793,7 +793,23 @@ function renderCompare() {
       tr.appendChild(el("td", "", tb[n] ? tb[n].conditions.join(" + ") : "not recorded"));
       tbody.appendChild(tr);
     });
-    table.appendChild(tbody); wrap.appendChild(table); body.appendChild(wrap);
+    table.appendChild(tbody); wrap.appendChild(table);
+    // the list can be long: hidden until the dentist asks for it (choice remembered on this device)
+    let open = false;
+    try { open = localStorage.getItem("cmpList") === "open"; } catch (e) {}
+    const btn = el("button", "mini-btn cmp-toggle"); btn.type = "button";
+    const show = function () {
+      wrap.hidden = !open;
+      btn.textContent = open ? "▲ Hide tooth-by-tooth list" : "▼ Show tooth-by-tooth list (" + changed.length + ")";
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    };
+    btn.addEventListener("click", function () {
+      open = !open;
+      try { localStorage.setItem("cmpList", open ? "open" : "closed"); } catch (e) {}
+      show();
+    });
+    show();
+    body.appendChild(btn); body.appendChild(wrap);
   }
 }
 document.getElementById("cmpA").addEventListener("change", function () { cmpPick.a = this.value; renderCompare(); });
