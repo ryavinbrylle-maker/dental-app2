@@ -885,6 +885,7 @@ function openVisitForm(visit, opts) {
   document.getElementById("visitName").textContent = recordSubtitle(currentStudent);
   document.getElementById("exToday").textContent = "· " + longDateText(form.date);
   document.getElementById("examNotes").value = (visit && visit.exam_notes) || "";
+  if (typeof renderQuickNotes === "function") renderQuickNotes();
   document.getElementById("visitError").textContent = "";
   document.getElementById("visitSaved").textContent = "";
   document.getElementById("paintHint").textContent = "";
@@ -1300,3 +1301,81 @@ document.getElementById("editGrade").addEventListener("change", function () {
   const secs = sectionsFor(this.value);
   fillSelect("editSection", secs, secs.includes(keep) ? keep : "");
 });
+
+// ---------- quick notes for the dentist ----------
+// "Presence of Calculus" / "With Orthodontic Appliance" each go on their own line of the notes.
+// "Upper" / "Lower" add the arch to the last quick note: "Presence of Calculus – Upper & Lower".
+const QN_ARCH = /\s+–\s+(Upper & Lower|Upper|Lower)$/;
+function qnLines() {
+  return document.getElementById("examNotes").value.split("\n");
+}
+function qnWrite(lines) {
+  const box = document.getElementById("examNotes");
+  box.value = lines.join("\n").replace(/^\n+|\n+$/g, "");
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  renderQuickNotes();
+}
+function qnFindLine(lines, note) {
+  for (let i = 0; i < lines.length; i++) if (lines[i].replace(QN_ARCH, "").trim() === note) return i;
+  return -1;
+}
+function qnLastNoteLine(lines) {
+  const notes = Array.from(document.querySelectorAll("#quickNotes [data-note]")).map(function (b) { return b.dataset.note; });
+  for (let i = lines.length - 1; i >= 0; i--) if (notes.indexOf(lines[i].replace(QN_ARCH, "").trim()) >= 0) return i;
+  return -1;
+}
+function qnArches(line) {
+  const m = line.match(QN_ARCH);
+  return m ? (m[1] === "Upper & Lower" ? ["Upper", "Lower"] : [m[1]]) : [];
+}
+function toggleQuickNote(note) {
+  const lines = qnLines();
+  const i = qnFindLine(lines, note);
+  if (i >= 0) lines.splice(i, 1);                      // tap again = remove
+  else lines.push(note);
+  qnWrite(lines);
+}
+function toggleArch(arch) {
+  const lines = qnLines();
+  const i = qnLastNoteLine(lines);
+  if (i < 0) { showHint("Tap Presence of Calculus or With Orthodontic Appliance first, then " + arch + "."); return; }
+  const base = lines[i].replace(QN_ARCH, "").trim();
+  let arches = qnArches(lines[i]);
+  arches = arches.indexOf(arch) >= 0 ? arches.filter(function (a) { return a !== arch; }) : arches.concat(arch);
+  arches.sort(function (a, b) { return a === "Upper" ? -1 : b === "Upper" ? 1 : 0; });
+  lines[i] = base + (arches.length ? " – " + arches.join(" & ") : "");
+  qnWrite(lines);
+}
+function showHint(text) {
+  const h = document.querySelector(".qn-hint");
+  if (!h) return;
+  h.textContent = text; h.classList.add("warn");
+  clearTimeout(showHint.t);
+  showHint.t = setTimeout(function () {
+    h.textContent = "Tap a quick note to add it, then Upper / Lower for the arch. Tap again to remove."; h.classList.remove("warn");
+  }, 4000);
+}
+function renderQuickNotes() {
+  const box = document.getElementById("quickNotes");
+  if (!box) return;
+  const lines = qnLines();
+  const last = qnLastNoteLine(lines);
+  const arches = last >= 0 ? qnArches(lines[last]) : [];
+  box.querySelectorAll("[data-note]").forEach(function (b) {
+    const on = qnFindLine(lines, b.dataset.note) >= 0;
+    b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  box.querySelectorAll("[data-arch]").forEach(function (b) {
+    const on = arches.indexOf(b.dataset.arch) >= 0;
+    b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+}
+if (document.getElementById("quickNotes")) {
+  document.getElementById("quickNotes").addEventListener("click", function (e) {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.note) toggleQuickNote(b.dataset.note);
+    else if (b.dataset.arch) toggleArch(b.dataset.arch);
+  });
+  document.getElementById("examNotes").addEventListener("input", renderQuickNotes);
+}

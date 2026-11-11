@@ -158,6 +158,10 @@
     .mini-btn.danger { color: #c4501a; border-color: #f0b38f; background: #fff5ef; }
     .card .detail-grid h3 { font-size: 15px; color: var(--teal); margin: 0 0 6px; }
     .visit p { margin: 4px 0; }
+    .quick-notes { margin: 6px 0 4px; }
+    .quick-notes .qn-arch { min-width: 72px; justify-content: center; }
+    .qn-hint { font-size: 13px; margin: 0 0 6px; }
+    .qn-hint.warn { color: var(--warning, #8a5a00); font-weight: 600; }
     .chip .cnt { font-size: 12px; opacity: .8; margin-left: 4px; }
     .chip.brush { color: #fff; border-color: transparent; }
     .chip.brush.b-Sound    { background: #9aa3ae; }
@@ -1065,6 +1069,13 @@
         </div>
 
         <span class="small-label">Dentist notes</span>
+        <div class="chips quick-notes" id="quickNotes" aria-label="Quick notes">
+          <button type="button" class="chip" data-note="Presence of Calculus">Presence of Calculus</button>
+          <button type="button" class="chip" data-note="With Orthodontic Appliance">With Orthodontic Appliance</button>
+          <button type="button" class="chip qn-arch" data-arch="Upper">Upper</button>
+          <button type="button" class="chip qn-arch" data-arch="Lower">Lower</button>
+        </div>
+        <p class="muted qn-hint">Tap a quick note to add it, then Upper / Lower for the arch. Tap again to remove.</p>
         <textarea class="box" id="examNotes" placeholder="Findings, treatment given, advice for parents..."></textarea>
       </div>
 
