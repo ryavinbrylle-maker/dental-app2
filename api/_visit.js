@@ -1,7 +1,8 @@
 // Shared rules for dental examinations ("visits"), used by api/visits.js and api/sync.js.
 
 export const STATUSES = ["Sound", "Decayed", "Missing", "Filled", "Fractured", "Sealant",
-                         "Root Fragment", "Impacted", "Crowned", "Temporary Filled", "Unerupted"];
+                         "Root Fragment", "Impacted", "Crowned", "Temporary Filled", "Unerupted",
+                  "Composite filled", "Amalgam filled", "Indicated for extraction", "Carious tooth", "Erupting"];
 // "Crowded" was renamed "Crowned" (Oct 2026); changes saved offline on an older version are converted
 const RENAMED = { "Crowded": "Crowned" };
 
@@ -50,14 +51,16 @@ export function cleanTeeth(teeth) {
 }
 
 // DMFT counts each tooth once (WHO): Missing > Decayed > Filled.
-// Retained root fragments and temporary fillings count as decayed (WHO rule).
+// Retained root fragments and temporary fillings count as decayed (WHO rule); so do carious teeth
+// and teeth indicated for extraction. Composite and amalgam fillings count as filled.
 export function dmft(teeth) {
   const c = { d: 0, m: 0, f: 0 };
   Object.values(teeth).forEach(function (t) {
     const l = t.conditions;
     if (l.includes("Missing")) c.m++;
-    else if (l.includes("Decayed") || l.includes("Root Fragment") || l.includes("Temporary Filled")) c.d++;
-    else if (l.includes("Filled")) c.f++;
+    else if (l.includes("Decayed") || l.includes("Carious tooth") || l.includes("Indicated for extraction") ||
+             l.includes("Root Fragment") || l.includes("Temporary Filled")) c.d++;
+    else if (l.includes("Filled") || l.includes("Composite filled") || l.includes("Amalgam filled")) c.f++;
   });
   return c;
 }
