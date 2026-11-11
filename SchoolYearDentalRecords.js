@@ -229,7 +229,7 @@ function renderArchivedRecord(data, fromDevice) {
 
   // ---- print this student's dental record (all school years when online) ----
   const actions = el("div", "sy-rec-actions");
-  const pdfBtn = el("button", "secondary", "🖨 Print dental record (PDF)"); pdfBtn.type = "button";
+  const pdfBtn = el("button", "secondary", "Print dental record (PDF)"); pdfBtn.type = "button";
   pdfBtn.addEventListener("click", function () {
     const exams = navigator.onLine && reg.id
       ? syApi("/api/visits?student_id=" + reg.id).then(function (d) { return d.visits || []; })

@@ -266,14 +266,14 @@ function renderUpNext() {
     box.appendChild(done);
     return;
   }
-  box.appendChild(el("div", "ap-now", "🔵 Next student"));
+  box.appendChild(el("div", "ap-now", "Next student"));
   const who = el("div", "ap-who");
   who.appendChild(el("span", "code-badge " + (cur.code_gender || "none"), apCode(cur)));
   who.appendChild(el("h3", "", cur.name || "—"));
   box.appendChild(who);
   box.appendChild(el("p", "muted", cur.status === "Late Arrival"
-    ? "🕒 Late arrival – arrived " + fmtTime(cur.arrived_at)
-    : "⏳ Waiting" + (cur.extra ? " · extra appointment" : "")));
+    ? "Late arrival – arrived " + fmtTime(cur.arrived_at)
+    : "Waiting" + (cur.extra ? " · extra appointment" : "")));
   const s = studentForAppt(cur);
   const medical = [].concat(s.conditions || [], s.other_conditions ? [s.other_conditions] : []);
   const alerts = [];
@@ -343,7 +343,7 @@ function renderList() {
   const cur = currentAppt();
   const show = (LIST_FILTERS.find(function (f) { return f[0] === listFilter; }) || LIST_FILTERS[0])[2];
   const shown = ap.list.filter(show);
-  if (!shown.length) box.appendChild(el("p", "muted", listFilter === "todo" ? "Everyone in this section has been seen. 🎉" :
+  if (!shown.length) box.appendChild(el("p", "muted", listFilter === "todo" ? "Everyone in this section has been seen." :
     listFilter === "absent" ? "No absent students in this section." : listFilter === "done" ? "No one has been completed yet." : "No students."));
   shown.forEach(function (a) {
     const isCur = cur && cur.uid === a.uid;
@@ -353,13 +353,13 @@ function renderList() {
     if (ap.flashUid === a.uid && Date.now() < (ap.flashUntil || 0)) row.classList.add("flash");
     row.appendChild(el("span", "code-badge " + (a.code_gender || "none"), apCode(a)));
     row.appendChild(el("span", "nm", (a.name || "—") + (a.extra ? " (extra)" : "")));
-    const label = isCur ? "🔵 Next" :
+    const label = isCur ? "Next" :
                   a.status === "Completed" ? (a.was_absent ? "✓ Completed (late)" : "✓ Completed") :
                   a.status === "Absent" ? "✗ ABSENT" :
-                  a.status === "Late Arrival" ? "🕒 Late arrival" : "⏳ Waiting";
+                  a.status === "Late Arrival" ? "Late arrival" : "Waiting";
     row.appendChild(el("span", "st", label));
     const badge = syncBadge(a);
-    if (badge) { badge.textContent = a._sync === "pending" ? "⏳ on device" : badge.textContent; row.appendChild(badge); }
+    if (badge) { badge.textContent = a._sync === "pending" ? "on device" : badge.textContent; row.appendChild(badge); }
     if (a.status === "Absent") row.appendChild(arrivedButton(a, "mini-btn"));
     if (inQueue) {
       row.appendChild(el("span", "go", "›"));
@@ -499,9 +499,9 @@ function markArrived(appt, btn) {
       const sameClass = ap.loaded && appt.grade === ap.grade && appt.section === ap.section && appt._date === ap.date;
       const label = apCode(appt) + " " + (appt.name || "");
       ap.last = sameClass
-        ? { uid: appt.uid, text: "🕒 " + label + " arrived – moved to the front of the queue" }
+        ? { uid: appt.uid, text: "" + label + " arrived – moved to the front of the queue" }
         : { goto: { grade: appt.grade, section: appt.section },
-            text: "🕒 " + label + " arrived (" + appt.grade + " – " + appt.section + ")" };
+            text: "" + label + " arrived (" + appt.grade + " – " + appt.section + ")" };
       showToast(label + " marked as arrived");
       $("abError").textContent = "";
     })
@@ -665,7 +665,7 @@ function renderAbsent() {
   if (!shown) {
     box.appendChild(el("p", "muted", ab.list.length
       ? "No absent student matches your search."
-      : "No students are marked absent on this date. 🎉"));
+      : "No students are marked absent on this date."));
   }
 }
 

@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Dentist – Registered Students</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --teal: #336e7b;
@@ -649,6 +649,8 @@
     .rec-pos { font-size: 13px; min-width: 52px; text-align: center; }
     #recPdf { height: 40px; }
     .hist-sub { margin: 2px 0 0; font-size: 13.5px; }
+    .condition.none { border: 1px solid var(--border); background: var(--soft); padding: 10px 14px; border-radius: var(--radius-sm); }
+    .condition.none p { margin: 0; color: var(--muted); }
     .hist-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .hist-order .chip { height: 34px; padding: 0 12px; font-size: 13.5px; }
     .hist-order .chip.on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
@@ -696,11 +698,231 @@
     .enroll-card h4 { margin: 0 0 4px; }
     .ok-line { color: var(--success); font-weight: 700; }
   </style>
+  <style id="design-v2">
+    /* =====================================================================
+       Design system v2 (Nov 2026) – calm clinical teal, Atkinson Hyperlegible,
+       44px+ touch targets, grouped controls, bottom navigation on phones.
+       Loaded last: overrides the earlier layers above.
+       ===================================================================== */
+    :root {
+      --primary: #0e7490; --primary-hover: #155e75; --primary-soft: #e6f6f9; --primary-line: #a5dbe6;
+      --teal: #0e7490;
+      --success: #047857; --success-hover: #065f46; --success-soft: #e7f6ef;
+      --danger: #b42318; --danger-soft: #fdecea;
+      --warning: #92400e; --warning-soft: #fff4e0;
+      --bg: #f3f7f9; --surface: #ffffff; --soft: #f1f5f7;
+      --border: #dce5ea; --border-strong: #c3d0d7;
+      --text: #0f2a33; --muted: #50646c; --placeholder: #7d8f96;
+      --radius: 14px; --radius-sm: 10px; --radius-pill: 999px;
+      --shadow: 0 1px 2px rgba(15,42,51,.05), 0 2px 6px rgba(15,42,51,.05);
+      --shadow-lg: 0 12px 32px rgba(15,42,51,.18);
+      --focus: 0 0 0 3px rgba(14,116,144,.38);
+      --tap: 44px;
+      --ease: cubic-bezier(.2,.7,.3,1);
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: "Atkinson Hyperlegible", "DM Sans", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      font-size: 16px; line-height: 1.5; background: var(--bg); color: var(--text); }
+    button, input, select, textarea { font-family: inherit; }
+    h2, h3, h4 { letter-spacing: -0.005em; }
+    .ic { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ----- buttons: one consistent family ----- */
+    button, .btn-link { min-height: var(--tap); display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border-radius: var(--radius-sm); font-weight: 700; font-size: 15px; cursor: pointer;
+      transition: background-color .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease), transform .1s var(--ease); }
+    button { height: auto; padding: 0 18px; }
+    button:active:not(:disabled) { transform: scale(.98); }
+    button.secondary, .btn-link.secondary { background: var(--surface); color: var(--primary); border: 1.5px solid var(--border-strong); }
+    button.secondary:hover, .btn-link.secondary:hover { background: var(--primary-soft); border-color: var(--primary); }
+    .btn-complete { background: var(--success); color: #fff; }
+    .btn-complete:hover { background: var(--success-hover); }
+    .btn-primary-lg { background: var(--primary); color: #fff; padding: 0 20px; }
+    .mini-btn { min-height: 36px; padding: 0 14px; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+    @media (pointer: coarse) { .mini-btn { min-height: var(--tap); } }
+    :focus-visible { outline: none; box-shadow: var(--focus); }
+    a { color: var(--primary); }
+
+    /* ----- header ----- */
+    header.app-header { padding: 10px 24px; min-height: 64px; }
+    .brand-mark { width: 40px; height: 40px; border-radius: 12px; background: var(--primary); color: #fff; }
+    .brand-mark .ic { width: 22px; height: 22px; fill: #fff; stroke: none; }
+    .brand-text h1 { font-size: 18px; }
+    .nav-item { min-height: 42px; gap: 8px; padding: 0 14px; font-size: 15px; }
+    .nav-item .ic { width: 19px; height: 19px; }
+    .hdr-right { gap: 8px; }
+    .hdr-logout { min-height: 38px; gap: 6px; padding: 0 12px; }
+    .hdr-logout .ic { width: 18px; height: 18px; }
+    .lock { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-size: 15px; }
+    .lock .ic { width: 18px; height: 18px; }
+
+    /* phones: compact top bar + bottom tab bar (thumb reach) */
+    @media (max-width: 760px) {
+      header.app-header { flex-wrap: nowrap; padding: 8px 12px; min-height: 56px; }
+      .brand-mark { width: 36px; height: 36px; }
+      .brand-text h1 { font-size: 16px; }
+      .hdr-right .sy-badge { display: none; }
+      .hdr-logout span { display: none; }
+      .hdr-logout { width: var(--tap); height: var(--tap); padding: 0; }
+      .sync-pill { min-height: 36px; padding: 0 10px; }
+      body.signed-in .app-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; margin: 0; width: auto; order: 0;
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; overflow: visible;
+        background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -4px 16px rgba(15,42,51,.08);
+        padding: 4px 6px calc(4px + env(safe-area-inset-bottom)); }
+      body.signed-in .nav-item { flex-direction: column; gap: 2px; min-height: 56px; padding: 4px 2px; font-size: 12px;
+        border-radius: 12px; background: transparent; }
+      body.signed-in .nav-item .ic { width: 22px; height: 22px; }
+      body.signed-in .nav-item.active { color: var(--primary); background: var(--primary-soft); }
+      body.signed-in main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+      /* the examination has its own action bar – hide the tabs there */
+      body.signed-in:has(#visitForm[style*="block"]) .app-nav { display: none; }
+    }
+
+    /* ----- page structure ----- */
+    main { max-width: 1180px; padding: 24px 20px 72px; }
+    .card { border-radius: var(--radius); padding: 22px; margin-bottom: 16px; }
+    .card h3 { font-size: 18px; display: flex; align-items: center; gap: 8px; }
+    .card h3 .ic { color: var(--primary); }
+    .card-head { gap: 12px; flex-wrap: wrap; }
+    .small-label { font-size: 12.5px; letter-spacing: .05em; font-weight: 700; }
+    .bar { border-radius: var(--radius); padding: 14px 18px; gap: 12px 16px; margin-bottom: 16px; }
+    .bar h2 { font-size: 21px; margin: 0; }
+    .back { width: var(--tap); height: var(--tap); min-height: var(--tap); padding: 0; border-radius: 12px; font-size: 26px; }
+    @media (max-width: 760px) {
+      main { padding: 14px 12px 72px; }
+      .card { padding: 16px; border-radius: 12px; }
+      .bar { padding: 12px; }
+      .bar h2 { font-size: 19px; }
+    }
+
+    /* ----- dashboard ----- */
+    .page-tools .btn-link { min-height: 46px; }
+    .toolbar button { min-height: 46px; }
+    .toolbar input[type=search] { min-height: 46px; }
+    @media (max-width: 760px) {
+      .toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .toolbar input[type=search] { grid-column: 1 / -1; }
+      .toolbar button { width: 100%; }
+      .page-head { flex-direction: column; align-items: stretch; }
+      .page-tools { display: grid; grid-template-columns: 1fr; gap: 8px; }
+      .page-tools .btn-link { width: 100%; }
+    }
+    .dot-red { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--danger); margin-right: 2px; }
+
+    /* ----- student record ----- */
+    #record .bar-actions { margin-left: auto; }
+    #record .bar-actions button { min-height: 46px; }
+    @media (max-width: 760px) {
+      #record .bar-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 8px; margin-left: 0; }
+      #record .rec-nav { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto 1fr; }
+      #record .rec-nav[hidden] { display: none; }
+      #record .bar-actions #recPdf, #record .bar-actions #addVisitBtn { width: 100%; padding: 0 10px; }
+    }
+    .hist-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .edit-card { padding: 0; }
+    .edit-card > summary { list-style: none; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+      padding: 18px 22px; min-height: var(--tap); border-radius: var(--radius); }
+    .edit-card > summary::-webkit-details-marker { display: none; }
+    .edit-card > summary::after { content: ""; position: absolute; }
+    .edit-card > summary .sum-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 17px; color: var(--text); }
+    .edit-card > summary .sum-title .ic { color: var(--primary); }
+    .edit-card > summary .sum-hint { color: var(--muted); font-size: 14px; padding-left: 28px; }
+    .edit-card > summary:hover { background: var(--soft); }
+    .edit-card[open] > summary { border-bottom: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; }
+    .edit-card > :not(summary) { margin-left: 22px; margin-right: 22px; }
+    .edit-card > .save-row { margin-bottom: 20px; }
+    .edit-card .edit-grid { margin-top: 16px; }
+    .edit-card #deleteStudentBtn { min-height: var(--tap); }
+    @media (max-width: 760px) { .edit-card > summary { padding: 14px 16px; } .edit-card > :not(summary) { margin-left: 16px; margin-right: 16px; } }
+
+    /* ----- examination ----- */
+    .ex-student { padding: 14px 18px; }
+    .ex-student .ap-who { margin: 0 0 6px; }
+    .ex-student .ap-who h3 { font-size: 20px; }
+    .ex-student .ap-meta { display: flex; flex-wrap: wrap; gap: 6px 8px; font-size: 14px; }
+    .ex-student .ap-meta > div { background: var(--soft); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 3px 12px; }
+    .ex-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+    .ex-head h3 { margin: 0; }
+    .seg.seg-compact { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 0; padding: 3px;
+      background: var(--soft); border: 1px solid var(--border); border-radius: var(--radius-pill); }
+    .seg.seg-compact button { min-height: 38px; height: auto; padding: 0 16px; border: 0; border-radius: var(--radius-pill);
+      background: transparent; color: var(--muted); font-size: 14px; }
+    .seg.seg-compact button.on { background: var(--surface); color: var(--primary); box-shadow: 0 1px 3px rgba(15,42,51,.15); }
+    @media (pointer: coarse) { .seg.seg-compact button { min-height: 40px; } }
+    .brush-hint { font-size: 14px; font-weight: 700; color: var(--primary); margin: 6px 0 10px; }
+    .paint-hint { min-height: 1.3em; }
+    .auto-sound { font-size: 14px; }
+    .ex-section { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 14px; }
+    .ex-section-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .ex-section-head .muted { font-size: 14px; }
+    .ex-step { font-weight: 700; font-size: 16px; color: var(--text); }
+    .cond-groups { display: grid; gap: 10px; }
+    .cond-group { display: grid; grid-template-columns: 116px 1fr; align-items: start; gap: 8px; }
+    .cond-group-label { font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted);
+      padding-top: 11px; }
+    .cond-group .chips { gap: 8px; }
+    @media (max-width: 760px) {
+      .cond-group { grid-template-columns: 1fr; gap: 4px; }
+      .cond-group-label { padding-top: 0; }
+    }
+    .chip { min-height: 40px; padding: 0 14px; font-size: 14.5px; border-radius: var(--radius-pill); gap: 6px; }
+    @media (pointer: coarse) { .chip { min-height: var(--tap); } }
+    .chip .dot { width: 12px; height: 12px; }
+    .chip.on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+    .tooth-panel { margin-top: 16px; border: 1.5px solid var(--primary-line); background: #f7fcfd; border-radius: 12px; padding: 14px 16px; }
+    .tooth-panel .tp-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .tooth-panel .tp-head b { font-size: 17px; }
+    .tooth-panel .small-label { margin-top: 10px; }
+    .quick-notes { margin: 0 0 4px; }
+    .quick-notes .chip { font-weight: 700; }
+    #examNotes { min-height: 110px; }
+    .prev-card h3 .ic { color: var(--primary); }
+
+    /* save bar: always within thumb reach */
+    .ex-actions { position: sticky; bottom: 0; z-index: 20; display: flex; justify-content: flex-end; gap: 10px;
+      margin: 0 -2px; padding: 12px 16px; background: rgba(255,255,255,.96); backdrop-filter: blur(6px);
+      border: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; box-shadow: 0 -6px 18px rgba(15,42,51,.08); }
+    .ex-actions button { min-height: 50px; height: auto; font-size: 16px; padding: 0 22px; }
+    @media (max-width: 760px) {
+      .ex-actions { position: fixed; left: 0; right: 0; bottom: 0; margin: 0; border-radius: 0; border-width: 1px 0 0;
+        padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: 1fr 2fr; }
+      .ex-actions:has(#visitAbsent[style*="inline"], #visitAbsent[style*="block"], #visitAbsent[style*="flex"]) { grid-template-columns: 1fr 1fr 2fr; }
+      .ex-actions button { width: 100%; padding: 0 10px; }
+      #visitForm { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+    }
+
+    /* ----- modals ----- */
+    .modal-box { border-radius: 16px; }
+    .save-row { gap: 10px; flex-wrap: wrap; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+
+    /* phones: each condition group is one swipeable row – short page, everything one tap away */
+    @media (max-width: 760px) {
+      .cond-group .chips { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+        margin: 0 -16px; padding: 2px 16px 4px; scroll-padding: 16px; }
+      .cond-group .chips::-webkit-scrollbar { display: none; }
+      .cond-group .chip { flex: 0 0 auto; font-size: 14px; padding: 0 12px; }
+      .tooth-panel .cond-group .chips { margin: 0 -16px; }
+      .hdr-right { flex-wrap: nowrap; margin-left: auto; }
+      header.app-header { justify-content: space-between; }
+      .brand-text h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .sync-pill { white-space: nowrap; font-size: 12.5px; }
+      #record .bar-actions #addVisitBtn { grid-column: 1 / -1; order: -1; min-height: 50px; }
+      #record .bar-actions #recPdf { grid-column: 1 / -1; }
+      #record .bar-actions button { white-space: nowrap; }
+      .ex-student .ap-meta > div { padding: 2px 10px; font-size: 13.5px; }
+    }
+  </style>
 </head>
 <body>
   <header class="app-header">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">&#129463;</span>
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M7.5 3C5 3 3.5 5 3.5 7.6c0 2 .8 3.4 1.4 5 .7 2 .8 4.7 1.4 6.6.3 1 .8 1.8 1.6 1.8 1.4 0 1.5-2.3 2-4 .3-1 .6-1.8 1.6-1.8s1.3.8 1.6 1.8c.5 1.7.6 4 2 4 .8 0 1.3-.8 1.6-1.8.6-1.9.7-4.6 1.4-6.6.6-1.6 1.4-3 1.4-5C20.5 5 19 3 16.5 3c-1.8 0-2.8 1-4.5 1S9.3 3 7.5 3Z"/></svg></span>
       <div class="brand-text">
         <h1>School Dental Clinic</h1>
         <span>Dentist workspace</span>
@@ -708,14 +930,14 @@
     </div>
     <!-- main navigation (shown after login) -->
     <nav class="app-nav" aria-label="Main">
-      <button type="button" class="nav-item" id="navStudents" data-nav="students">Students</button>
-      <button type="button" class="nav-item" id="openApptBtn" data-nav="appointments">Appointments</button>
-      <button type="button" class="nav-item" id="openSyBtn" data-nav="schoolyears">School Years</button>
+      <button type="button" class="nav-item" id="navStudents" data-nav="students"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="10" cy="8" r="3.5"/><path d="M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.6a3.5 3.5 0 0 1 0 6.8"/></svg><span>Students</span></button>
+      <button type="button" class="nav-item" id="openApptBtn" data-nav="appointments"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Appointments</span></button>
+      <button type="button" class="nav-item" id="openSyBtn" data-nav="schoolyears"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/></svg><span>School Years</span></button>
     </nav>
     <div class="hdr-right">
       <span class="sy-badge" id="syBadge" title="Active school year"></span>
       <button type="button" class="sync-pill" id="syncStatus" title="Records saved on this device and upload status">…</button>
-      <button type="button" class="hdr-logout" id="logoutBtn">Log out</button>
+      <button type="button" class="hdr-logout" id="logoutBtn" aria-label="Log out"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10"/></svg><span>Log out</span></button>
     </div>
   </header>
   <!-- asked before leaving an examination with unsaved changes (Dental.js) -->
@@ -763,7 +985,7 @@
     <!-- Dentist login -->
     <section id="login">
       <h2 class="login-title">Sign in</h2>
-      <p class="lock">&#128274; Dentist access only</p>
+      <p class="lock"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg> Dentist access only</p>
       <label for="username">Username</label>
       <input type="text" id="username" placeholder="Dentist username" autocomplete="username">
       <label for="password">Password</label>
@@ -784,7 +1006,7 @@
             <span class="small-label">School year</span>
             <select id="yearSelect" class="box" hidden aria-label="School year"></select>
           </label>
-          <a class="btn-link secondary" href="StudentReg.html" target="_blank" rel="noopener">&#65291; Register a student</a>
+          <a class="btn-link secondary" href="StudentReg.html" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M12 5v14M5 12h14"/></svg> Register a student</a>
         </div>
       </div>
 
@@ -796,8 +1018,8 @@
         <select id="gradeFilter" hidden aria-hidden="true">
           <option value="">All grades</option>
         </select>
-        <button type="button" class="secondary" id="refreshBtn">Refresh</button>
-        <button type="button" class="secondary" id="exportBtn">Download CSV</button>
+        <button type="button" class="secondary" id="refreshBtn"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></svg><span>Refresh</span></button>
+        <button type="button" class="secondary" id="exportBtn"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>Download CSV</span></button>
       </div>
 
       <!-- Returning students waiting for confirmation (SchoolYearDentalRecords.js) -->
@@ -842,7 +1064,7 @@
       <!-- Absent Students: everyone marked absent on the chosen date, by Grade and Section -->
       <div class="card ab-card">
         <div class="card-head">
-          <h3>&#128308; Absent Students <span class="ab-total" id="abTotal">0</span></h3>
+          <h3><span class="dot-red" aria-hidden="true"></span>Absent Students <span class="ab-total" id="abTotal">0</span></h3>
           <div class="ab-head-right">
             <span class="muted" id="abDate"></span>
             <button type="button" class="secondary ab-toggle" id="abToggle" aria-expanded="false" aria-controls="abBody">Show list</button>
@@ -899,12 +1121,13 @@
             <span class="muted rec-pos" id="recPos"></span>
             <button type="button" class="secondary nav-btn" id="recNext" aria-label="Next student">Next &rsaquo;</button>
           </div>
-          <button type="button" id="recPdf">&#128424; Print dental record (PDF)</button>
+          <button type="button" class="secondary" id="recPdf"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M7 9V3.5h10V9M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7" rx="1"/></svg><span>Print record</span></button>
+          <button type="button" class="btn-primary-lg" id="addVisitBtn"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M12 5v14M5 12h14"/></svg><span>Add examination</span></button>
         </div>
       </div>
 
-      <div class="card">
-        <h3>Condition</h3>
+      <div class="card overview-card">
+        <h3>Overview</h3>
         <div id="conditionBox"></div>
 
         <span class="small-label">Tooth map (current)</span>
@@ -922,7 +1145,6 @@
           </div>
           <div class="hist-actions">
             <div class="chips hist-order" id="histOrder" role="group" aria-label="Order"></div>
-            <button type="button" id="addVisitBtn">Add examination</button>
           </div>
         </div>
         <div id="visitList"></div>
@@ -955,8 +1177,8 @@
       </div>
 
       <!-- Change class / student code, or delete the student -->
-      <div class="card">
-        <h3>Class &amp; Student Code</h3>
+      <details class="card edit-card" id="editCard">
+        <summary><span class="sum-title"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4"/></svg> Edit name, class or student code</span><span class="sum-hint">Grade, section, student code, remove from roster</span></summary>
         <div class="edit-grid">
           <div class="edit-wide">
             <span class="small-label">Student name</span>
@@ -988,7 +1210,7 @@
           <button type="button" class="mini-btn danger" id="deleteStudentBtn" style="height:46px;padding:0 18px">Delete student</button>
           <button type="button" id="saveStudentBtn">Save changes</button>
         </div>
-      </div>
+      </details>
     </section>
 
     <!-- ===== SchoolYearDentalRecords: archives of every school year ===== -->
@@ -1054,21 +1276,19 @@
       <div class="card ex-student" id="exStudent"></div>
 
       <div class="card">
-        <h3>Examination <span class="ex-today" id="exToday"></span></h3>
+        <div class="ex-head">
+          <h3>Tooth map <span class="ex-today" id="exToday"></span></h3>
+          <div class="seg seg-compact" role="group" aria-label="Dentition">
+            <button type="button" id="segPermanent" class="on">Permanent</button>
+            <button type="button" id="segPrimary">Primary</button>
+          </div>
+        </div>
+        <p class="hint brush-hint" id="brushHint"></p>
         <!-- the tooth map comes first; everything else is below it -->
         <div class="teeth-scroll" id="examMap"></div>
         <p class="paint-hint" id="paintHint"></p>
         <p class="muted auto-sound" id="autoSoundHint" aria-live="polite"></p>
-
-        <div class="seg" style="margin-top:6px">
-          <button type="button" id="segPermanent" class="on">Permanent</button>
-          <button type="button" id="segPrimary">Primary</button>
-        </div>
-        <span class="small-label">Colour key &middot; tap a condition to mark many teeth with it (optional)</span>
-        <div class="chips" id="statusChips" style="margin:6px 0 8px"></div>
-        <p class="hint" id="brushHint"></p>
-
-        <div id="toothPanel" style="display:none">
+        <div id="toothPanel" class="tooth-panel" style="display:none">
           <div class="tp-head">
             <b>Tooth <span id="selTooth"></span></b>
             <button type="button" class="mini-btn danger" id="clearTooth">Clear this tooth</button>
@@ -1076,12 +1296,22 @@
           <span class="small-label">Conditions on this tooth (tap ✕ to remove one)</span>
           <div class="chips" id="toothConds"></div>
           <span class="small-label">Add a condition</span>
-          <div class="chips" id="toothAdd"></div>
+          <div class="cond-groups" id="toothAdd"></div>
           <span class="small-label">Note for tooth <span id="selTooth2"></span> (optional)</span>
           <input type="text" class="box" id="toothNote" placeholder="Optional...">
         </div>
 
-        <span class="small-label">Dentist notes</span>
+        <div class="ex-section">
+          <div class="ex-section-head">
+            <span class="ex-step">Mark many teeth</span>
+            <span class="muted">Choose a condition, then tap or slide across teeth. Tap it again to stop.</span>
+          </div>
+          <div class="cond-groups" id="statusChips"></div>
+        </div>
+
+
+        <div class="ex-section">
+        <div class="ex-section-head"><span class="ex-step">Dentist notes</span></div>
         <div class="chips quick-notes" id="quickNotes" aria-label="Quick notes">
           <button type="button" class="chip" data-note="Presence of Calculus">Presence of Calculus</button>
           <button type="button" class="chip" data-note="With Orthodontic Appliance">With Orthodontic Appliance</button>
@@ -1090,12 +1320,13 @@
         </div>
         <p class="muted qn-hint">Tap a quick note to add it, then Upper / Lower for the arch. Tap again to remove.</p>
         <textarea class="box" id="examNotes" placeholder="Findings, treatment given, advice for parents..."></textarea>
+        </div>
       </div>
 
       <!-- Previous dental records (read-only, separate from this examination) -->
       <div class="card prev-card" id="prevCard">
         <div class="card-head">
-          <h3>&#128193; Previous Dental Records</h3>
+          <h3><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5Z"/></svg> Previous Dental Records</h3>
           <span class="muted" id="prevCount"></span>
         </div>
         <div id="prevRecords"></div>
@@ -1106,7 +1337,7 @@
       <div class="save-row ex-actions">
         <button type="button" class="secondary" id="visitCancel">Cancel</button>
         <button type="button" class="btn-absent" id="visitAbsent" style="display:none">&#10007; Absent</button>
-        <button type="button" class="btn-complete" id="visitSave">Save examination</button>
+        <button type="button" class="btn-complete" id="visitSave"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>Save examination</span></button>
       </div>
     </section>
   </main>

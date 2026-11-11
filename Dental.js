@@ -38,6 +38,25 @@ const COND_ABBR = { Decayed: "D", Missing: "M", Filled: "F", Fractured: "Fx", Se
                     "Composite filled": "CF", "Amalgam filled": "AF", "Indicated for extraction": "X",
                     "Carious tooth": "C", Erupting: "E" };
 function condClass(c) { return String(c).replace(/\s+/g, ""); }   // "Root Fragment" -> "RootFragment"
+const CHECK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+// Condition buttons are shown in groups so the long list is easy to scan
+const COND_GROUPS = [
+  ["Common", ["Sound", "Decayed", "Missing", "Filled"]],
+  ["Restorations", ["Composite filled", "Amalgam filled", "Temporary Filled", "Crowned", "Sealant"]],
+  ["Problems", ["Carious tooth", "Fractured", "Root Fragment", "Indicated for extraction", "Impacted"]],
+  ["Eruption", ["Erupting", "Unerupted"]]
+];
+function groupedStatuses() {
+  const used = [];
+  const groups = COND_GROUPS.map(function (g) {
+    const list = g[1].filter(function (c) { return STATUSES.includes(c); });
+    used.push.apply(used, list);
+    return [g[0], list];
+  });
+  const rest = STATUSES.filter(function (c) { return !used.includes(c); });
+  if (rest.length) groups.push(["Other", rest]);
+  return groups;
+}
 const TAP_DOUBLE_MS = 300;  // 2nd press within this time = double-tap
 const TAP_MOVE_PX = 10;     // finger moved more than this = not a plain tap
 
@@ -524,7 +543,12 @@ function renderRecord() {
   const s = currentStudent;
   const medical = [].concat(s.conditions || [], s.other_conditions ? [s.other_conditions] : []);
   const hasAlert = Boolean(s.allergies || medical.length || s.medications);
-  const box = el("div", "condition" + (hasAlert ? " alert" : ""));
+  const box = el("div", "condition" + (hasAlert ? " alert" : " none"));
+  if (!hasAlert && !s.weight_kg) {
+    box.appendChild(el("p", "", "No allergies, medical conditions or medications recorded."));
+    const cb = document.getElementById("conditionBox");
+    cb.innerHTML = ""; cb.appendChild(box);
+  } else {
   box.appendChild(el("h4", "", hasAlert ? "⚠ Medical condition" : "Medical condition"));
   [["Allergy", text(s.allergies)],
    ["Medical history", medical.length ? medical.join(", ") : "—"],
@@ -538,6 +562,7 @@ function renderRecord() {
   });
   const cBox = document.getElementById("conditionBox");
   cBox.innerHTML = ""; cBox.appendChild(box);
+  }
 
   // Current tooth map = all examinations combined, newest result wins
   const current = {};
@@ -913,7 +938,7 @@ function openVisitForm(visit, opts) {
   document.getElementById("visitAbsent").style.display = appt ? "inline-block" : "none";
   document.getElementById("visitAbsent").dataset.confirm = "";
   document.getElementById("visitAbsent").textContent = "✗ Absent";
-  document.getElementById("visitSave").textContent = appt ? "✓ Save & complete appointment" : "Save examination";
+  document.getElementById("visitSave").innerHTML = CHECK_ICON + "<span>" + (appt ? "Save &amp; complete appointment" : "Save examination") + "</span>";
   renderExamStudent();
   renderExam();
   form.initial = examSnapshot();                 // to warn before leaving with unsaved changes
@@ -977,8 +1002,8 @@ function renderExamStudent() {
   const rows = [["Grade", s.grade || "—"], ["Section", s.section || "—"], ["Date", longDateText(form.date)]];
   if (appt) {
     rows.push(["Status", appt.status === "Late Arrival"
-      ? "🕒 Late arrival" + (appt.arrived_at ? " – arrived " + new Date(appt.arrived_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "")
-      : "⏳ Waiting – now being seen"]);
+      ? "Late arrival" + (appt.arrived_at ? " – arrived " + new Date(appt.arrived_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "")
+      : "Waiting – now being seen"]);
   }
   if (s.school_year) rows.push(["School year", s.school_year]);
   rows.forEach(function (p) {
@@ -1055,7 +1080,13 @@ function renderExam() {
   // Optional "marking mode": choose a condition, then tap or slide across many teeth
   const chips = document.getElementById("statusChips");
   chips.innerHTML = "";
-  STATUSES.forEach(function (st) {
+  groupedStatuses().forEach(function (g) {
+  const row = el("div", "cond-group");
+  row.appendChild(el("span", "cond-group-label", g[0]));
+  const box = el("div", "chips");
+  row.appendChild(box);
+  chips.appendChild(row);
+  g[1].forEach(function (st) {
     const c = el("button", "chip" + (form.brush === st ? " brush b-" + condClass(st) : ""));
     c.type = "button";
     // colour swatch + abbreviation = the chart's legend
@@ -1073,11 +1104,12 @@ function renderExam() {
       form.brush = form.brush === st ? null : st;
       renderExam();
     });
-    chips.appendChild(c);
+    box.appendChild(c);
+  });
   });
 
   document.getElementById("brushHint").textContent = !form.brush
-    ? "Tap = Decayed · Double-tap = undo (unmarked) · Slide across teeth to mark several Decayed · Teeth you don't mark are saved as Sound."
+    ? "Tap a tooth = Decayed · Double-tap = undo · Slide across teeth to mark several · Unmarked teeth are saved as Sound."
     : form.brush === "Sound"
       ? "Marking mode: tap or slide across teeth to mark them Sound (clears other conditions). Tap “Sound” again to stop."
       : "Marking mode: tap teeth to add " + form.brush + " (tap again to remove), or slide across teeth to add it. Tap “" + form.brush + "” again to stop.";
@@ -1153,13 +1185,26 @@ function renderToothPanel() {
 
   const add = document.getElementById("toothAdd");
   add.innerHTML = "";
-  STATUSES.forEach(function (c) {
-    if (info && info.conditions.includes(c)) return;
-    const chip = el("button", "chip", "+ " + c);
-    chip.type = "button";
-    chip.title = c === "Sound" ? "Mark healthy (removes the other conditions)" : "Add " + c + " to tooth " + n;
-    chip.addEventListener("click", function () { addCondition(n, c); form.changed = n; renderExam(); });
-    add.appendChild(chip);
+  groupedStatuses().forEach(function (g) {
+    const list = g[1].filter(function (c) { return !(info && info.conditions.includes(c)); });
+    if (!list.length) return;
+    const row = el("div", "cond-group");
+    row.appendChild(el("span", "cond-group-label", g[0]));
+    const box = el("div", "chips");
+    row.appendChild(box);
+    add.appendChild(row);
+    list.forEach(function (c) {
+      const chip = el("button", "chip add-cond");
+      chip.type = "button";
+      const dot = el("span", "dot" + (c === "Sound" ? " sound" : ""));
+      dot.style.background = c === "Sound" ? "#eaf7ee" : COND_COLOR[c];
+      dot.setAttribute("aria-hidden", "true");
+      chip.appendChild(dot);
+      chip.appendChild(document.createTextNode("+ " + c));
+      chip.title = c === "Sound" ? "Mark healthy (removes the other conditions)" : "Add " + c + " to tooth " + n;
+      chip.addEventListener("click", function () { addCondition(n, c); form.changed = n; renderExam(); });
+      box.appendChild(chip);
+    });
   });
 
   document.getElementById("toothNote").value = info ? info.note : "";
@@ -1226,7 +1271,7 @@ function saveVisit() {
   if (form.saving) return;                 // already saving: ignore a double tap
   form.saving = true;
   btn.disabled = true;
-  const label = btn.textContent;
+  const label = btn.innerHTML;
   btn.textContent = "Saving...";
   const student = currentStudent;
   let job;
@@ -1256,7 +1301,7 @@ function saveVisit() {
   }).catch(function (err) {
     form.saving = false;
     errBox.textContent = "Could not save: " + err.message + " Nothing was lost – try again.";
-  }).finally(function () { btn.disabled = false; btn.textContent = label; });
+  }).finally(function () { btn.disabled = false; btn.innerHTML = label; });
 }
 
 function examAbsent() {
