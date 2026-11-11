@@ -22,7 +22,8 @@ const QUADRANT_NAMES = { Permanent: ["Upper right", "Upper left", "Lower right",
 const narrowScreen = window.matchMedia("(max-width: 700px)");
 
 const STATUSES = ["Sound", "Decayed", "Missing", "Filled", "Fractured", "Sealant",
-                  "Root Fragment", "Impacted", "Crowned", "Temporary Filled", "Unerupted"];
+                  "Root Fragment", "Impacted", "Crowned", "Temporary Filled", "Unerupted",
+                  "Composite filled", "Amalgam filled", "Indicated for extraction", "Carious tooth", "Erupting"];
 // Older records may say "Crowded" – that condition was renamed "Crowned" (Oct 2026)
 const RENAMED = { "Crowded": "Crowned" };
 // Conditions that can be COMBINED on one tooth (e.g. Sealant + Decayed).
@@ -30,9 +31,12 @@ const RENAMED = { "Crowded": "Crowned" };
 const CONDITIONS = STATUSES.filter(function (c) { return c !== "Sound"; });
 const COND_COLOR = { Decayed: "#e5483f", Missing: "#6b7280", Filled: "#4a8af4", Fractured: "#f07c12", Sealant: "#43b97f",
                      "Root Fragment": "#8b5a2b", Impacted: "#7c3aed", Crowned: "#c9a227", "Temporary Filled": "#a5c8ff",
-                     Unerupted: "#cbd5e1" };
+                     Unerupted: "#cbd5e1", "Composite filled": "#0ea5e9", "Amalgam filled": "#334155",
+                     "Indicated for extraction": "#9f1239", "Carious tooth": "#fb7185", Erupting: "#fde68a" };
 const COND_ABBR = { Decayed: "D", Missing: "M", Filled: "F", Fractured: "Fx", Sealant: "S",
-                    "Root Fragment": "RF", Impacted: "Im", Crowned: "Cr", "Temporary Filled": "TF", Unerupted: "U" };
+                    "Root Fragment": "RF", Impacted: "Im", Crowned: "Cr", "Temporary Filled": "TF", Unerupted: "U",
+                    "Composite filled": "CF", "Amalgam filled": "AF", "Indicated for extraction": "X",
+                    "Carious tooth": "C", Erupting: "E" };
 function condClass(c) { return String(c).replace(/\s+/g, ""); }   // "Root Fragment" -> "RootFragment"
 const TAP_DOUBLE_MS = 300;  // 2nd press within this time = double-tap
 const TAP_MOVE_PX = 10;     // finger moved more than this = not a plain tap
@@ -577,8 +581,9 @@ function dmftCounts(teeth) {
   Object.values(teeth).forEach(function (t) {
     const l = t.conditions;
     if (l.includes("Missing")) c.m++;
-    else if (l.includes("Decayed") || l.includes("Root Fragment") || l.includes("Temporary Filled")) c.d++;
-    else if (l.includes("Filled")) c.f++;
+    else if (l.includes("Decayed") || l.includes("Carious tooth") || l.includes("Indicated for extraction") ||
+             l.includes("Root Fragment") || l.includes("Temporary Filled")) c.d++;
+    else if (l.includes("Filled") || l.includes("Composite filled") || l.includes("Amalgam filled")) c.f++;
   });
   return c;
 }

@@ -146,8 +146,9 @@ const DentalRecordPDF = (function () {
           fill = COND_COLOR[probs[0]] || "#999999"; stroke = fill;
           label = probs.map(function (c) { return COND_ABBR[c] || c.charAt(0); }).join("+");
           txt = isDark(fill) ? "#ffffff" : "#1b2a2f";
-          dash = probs[0] === "Unerupted";
-          if (dash) { stroke = "#64748b"; fill = "#e2e8f0"; txt = "#1b2a2f"; }
+          dash = probs[0] === "Unerupted" || probs[0] === "Erupting";
+          if (probs[0] === "Unerupted") { stroke = "#64748b"; fill = "#e2e8f0"; txt = "#1b2a2f"; }
+          if (probs[0] === "Erupting") { stroke = "#b45309"; txt = "#1b2a2f"; }
         } else if (info) { fill = SOUND_FILL; stroke = SOUND_LINE; label = "Sd"; txt = "#1d6b4f"; }
         doc.rect(x, doc.y, box, box, { fill: fill, stroke: stroke, lw: probs.length > 1 ? 1.6 : 0.8, dash: dash });
         doc.text(x + box / 2, doc.y + 3, n, { size: 8.5, bold: true, color: txt, align: "center" });
@@ -170,7 +171,7 @@ const DentalRecordPDF = (function () {
     if (sound) lines.push(["Sound", sound + " teeth"]);
     if (!lines.length) lines.push(["Findings", "No teeth recorded."]);
     Object.keys(teeth).sort().forEach(function (n) { if (teeth[n].note) lines.push(["Note, tooth " + n, teeth[n].note]); });
-    const labelW = 120, textW = doc.W - 2 * doc.M - labelW;
+    const labelW = 150, textW = doc.W - 2 * doc.M - labelW;
     lines.forEach(function (l) {
       const wrapped = doc.wrap(l[1], textW, 9.5);
       doc.ensure(wrapped.length * 12 + 2);
@@ -196,22 +197,22 @@ const DentalRecordPDF = (function () {
     const c = dmftCounts(teeth);
     doc.ensure(16);
     doc.text(doc.M, doc.y + 2, "DMFT", { size: 9.5, bold: true });
-    doc.text(doc.M + 120, doc.y + 2, "D " + c.d + "   M " + c.m + "   F " + c.f + "   Total " + (c.d + c.m + c.f), { size: 9.5 });
+    doc.text(doc.M + 150, doc.y + 2, "D " + c.d + "   M " + c.m + "   F " + c.f + "   Total " + (c.d + c.m + c.f), { size: 9.5 });
     doc.y += 16;
-    const notes = doc.wrap(v.exam_notes || "—", doc.W - 2 * doc.M - 120, 9.5);
+    const notes = doc.wrap(v.exam_notes || "—", doc.W - 2 * doc.M - 150, 9.5);
     doc.ensure(Math.min(notes.length, 3) * 12 + 4);
     doc.text(doc.M, doc.y, "Dentist's notes", { size: 9.5, bold: true });
     notes.forEach(function (w, i) {
       if (i) doc.ensure(12);                          // long notes continue on the next page
-      doc.text(doc.M + 120, doc.y, w, { size: 9.5 });
+      doc.text(doc.M + 150, doc.y, w, { size: 9.5 });
       doc.y += 12;
     });
-    if (v.created_by) { doc.text(doc.M + 120, doc.y, "Recorded by: " + v.created_by, { size: 8.5, color: "#566a70" }); doc.y += 12; }
+    if (v.created_by) { doc.text(doc.M + 150, doc.y, "Recorded by: " + v.created_by, { size: 8.5, color: "#566a70" }); doc.y += 12; }
     doc.y += 12;
   }
 
   function legend(doc) {
-    doc.ensure(60);
+    doc.ensure(90);
     doc.text(doc.M, doc.y, "Colour key", { size: 9.5, bold: true });
     doc.y += 14;
     let x = doc.M;
@@ -220,7 +221,7 @@ const DentalRecordPDF = (function () {
       const label = it[0] + " (" + it[2] + ")";
       const w = 14 + doc.width(label, 8.5) + 14;
       if (x + w > doc.W - doc.M) { x = doc.M; doc.y += 14; }
-      doc.rect(x, doc.y, 10, 10, { fill: it[1], stroke: it[0] === "Sound" ? SOUND_LINE : it[1], lw: 0.8, dash: it[0] === "Unerupted" });
+      doc.rect(x, doc.y, 10, 10, { fill: it[1], stroke: it[0] === "Sound" ? SOUND_LINE : it[1], lw: 0.8, dash: it[0] === "Unerupted" || it[0] === "Erupting" });
       doc.text(x + 14, doc.y + 1, label, { size: 8.5 });
       x += w;
     });
