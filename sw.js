@@ -1,10 +1,10 @@
 // Service worker: keeps the dentist app's own files on this device so Students.html
 // opens without internet. Student data is NOT stored here (that is StudentStorageInfo,
 // in IndexedDB). /api/... requests are never cached.
-const CACHE = "dental-app-shell-v9";
+const CACHE = "dental-app-shell-v10";
 const SHELL = [
   "Students.html", "SchoolClasses.js", "DentalRecordPDF.js", "StudentStorageInfo.js", "Students.js", "Dental.js", "Appointments.js",
-  "SchoolYearDentalRecords.js", "StudentReg.html", "StudentReg.js", "intro.js", "cvif-logo.webp"
+  "SchoolYearDentalRecords.js", "StudentReg.html", "StudentReg.js", "intro.js", "cvif-logo.webp", "DentalCore.js"
 ];
 
 self.addEventListener("install", function (e) {

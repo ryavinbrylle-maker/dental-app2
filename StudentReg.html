@@ -88,6 +88,16 @@
     button { min-height: 52px; border-radius: var(--radius-sm); transition: background-color .15s, transform .1s; }
     button:active:not(:disabled) { transform: scale(.98); }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+    input[type="password"] { width: 100%; height: 48px; padding: 0 14px; font-family: inherit; font-size: 16px; color: var(--text);
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: #fff; outline: none; }
+    input[type="password"]:focus { border-color: var(--primary); box-shadow: var(--focus); }
+    .field.invalid input[type="password"] { border-color: var(--danger); background: #fffafa; }
+    .show-pw { display: inline-flex !important; align-items: center; gap: 8px; font-weight: 500 !important; margin: -6px 0 18px; min-height: 44px; cursor: pointer; }
+    .show-pw input { width: 20px; height: 20px; accent-color: var(--primary); }
+    header .hdr-link { margin-left: auto; display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px;
+      border: 1.5px solid var(--border); border-radius: 999px; color: var(--primary); font-weight: 700; text-decoration: none; font-size: 14px; white-space: nowrap; }
+    header .hdr-link:hover { border-color: var(--primary); background: var(--primary-soft); }
+    @media (max-width: 600px) { .row.pw-row { flex-direction: column; gap: 0; } }
   </style>
 </head>
 <body>
@@ -98,6 +108,7 @@
       <h1>Student Registration</h1>
       <p>School Dental Clinic</p>
     </div>
+    <a class="hdr-link" href="MyRecords.html">My dental record</a>
   </header>
 
   <form id="regForm" novalidate>
@@ -151,8 +162,8 @@
 
     <div class="row">
       <div class="field">
-        <label for="birthdate">Birthdate</label>
-        <input type="date" id="birthdate">
+        <label for="birthdate">Birthdate<span class="req" aria-hidden="true">*</span></label>
+        <input type="date" id="birthdate" required autocomplete="bday">
       </div>
       <div class="field">
         <label for="age">Age</label>
@@ -189,6 +200,22 @@
       <label for="medications">Current medications</label>
       <input type="text" id="medications" placeholder="e.g none">
     </div>
+
+    <!-- ===== ONLINE DENTAL RECORD ===== -->
+    <h2>Your online dental record</h2>
+    <p class="note">Make a password so you can see your dental check-ups online. Later you sign in with
+      your <b>name</b>, <b>birthdate</b> and this <b>password</b>. Keep it secret.</p>
+    <div class="row pw-row">
+      <div class="field">
+        <label for="password">Password<span class="req" aria-hidden="true">*</span></label>
+        <input type="password" id="password" autocomplete="new-password" minlength="6" maxlength="72" placeholder="At least 6 characters">
+      </div>
+      <div class="field">
+        <label for="password2">Type it again<span class="req" aria-hidden="true">*</span></label>
+        <input type="password" id="password2" autocomplete="new-password" maxlength="72" placeholder="Same password">
+      </div>
+    </div>
+    <label class="show-pw"><input type="checkbox" id="showPw"> Show password</label>
 
     <!-- ===== CONSENT ===== -->
     <h2>Consent</h2>

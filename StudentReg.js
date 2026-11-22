@@ -158,11 +158,19 @@ function validateForm() {
   check("codeNumber", !codeNumberInput.value.trim() ? "Enter the student's number, e.g. 1." :
                       (code.error && codeGenderInput.value ? code.error : (checkCodeTaken() ? "" : "This code is already taken in this class.")));
   const bd = val("birthdate");
-  check("birthdate", bd && bd > todayLocal() ? "The birthdate cannot be in the future." : "");
+  check("birthdate", !bd ? "Please enter the birthdate – you need it to sign in to your dental record." :
+                     bd > todayLocal() ? "The birthdate cannot be in the future." : "");
+  const pw = document.getElementById("password").value, pw2 = document.getElementById("password2").value;
+  check("password", pw.length < 6 ? "Make a password with at least 6 characters." : "");
+  check("password2", pw.length >= 6 && pw !== pw2 ? "The two passwords are not the same." : (pw.length >= 6 && !pw2 ? "Type the password again." : ""));
   return errors;
 }
 // clear a field's message as soon as it is fixed
-["studentName", "grade", "section", "codeGender", "codeNumber", "birthdate"].forEach(function (id) {
+document.getElementById("showPw").addEventListener("change", function () {
+  const t = this.checked ? "text" : "password";
+  document.getElementById("password").type = t; document.getElementById("password2").type = t;
+});
+["studentName", "grade", "section", "codeGender", "codeNumber", "birthdate", "password", "password2"].forEach(function (id) {
   const elx = document.getElementById(id);
   ["input", "change"].forEach(function (ev) {
     elx.addEventListener(ev, function () {
@@ -198,6 +206,7 @@ form.addEventListener("submit", function (e) {
     medications: val("medications"),
 
     consent: document.getElementById("consent").checked,
+    password: document.getElementById("password").value,
     registeredOn: new Date().toISOString()
   };
 
@@ -226,7 +235,17 @@ form.addEventListener("submit", function (e) {
         return data;
       });
     })
-    .then(function () {
+    .then(function (data) {
+      // signed in straight away -> the student's home screen with their dental record
+      if (data && data.token) {
+        try { sessionStorage.setItem("studentToken", data.token); } catch (e) {}
+        window.location.href = "MyRecords.html?welcome=1";
+        return;
+      }
+      if (data && data.account === "exists") {
+        window.location.href = "MyRecords.html?returning=1";
+        return;
+      }
       showMessage("✓ " + student.name + " (" + student.grade + " – " + student.section +
                   ", " + code.code + ") has been registered.", "ok");
       form.reset();

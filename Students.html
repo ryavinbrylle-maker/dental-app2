@@ -651,6 +651,13 @@
     .hist-sub { margin: 2px 0 0; font-size: 13.5px; }
     .condition.none { border: 1px solid var(--border); background: var(--soft); padding: 10px 14px; border-radius: var(--radius-sm); }
     .condition.none p { margin: 0; color: var(--muted); }
+    .online-card .tag.ok { background: var(--success-soft); color: var(--success); }
+    .online-card .tag.warn { background: var(--warning-soft); color: var(--warning); }
+    .online-card .tag.none { background: var(--soft); color: var(--muted); }
+    .online-card .save-row { justify-content: flex-start; }
+    .setup-code { border: 2px dashed var(--primary-line); background: var(--primary-soft); border-radius: 12px; padding: 14px 16px; margin: 6px 0 12px; }
+    .setup-code b.code { display: block; font-size: 30px; letter-spacing: .14em; color: var(--primary-hover); font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .setup-code p { margin: 4px 0 0; color: var(--text); font-size: 14.5px; }
     .hist-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .hist-order .chip { height: 34px; padding: 0 12px; font-size: 13.5px; }
     .hist-order .chip.on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
@@ -1177,6 +1184,18 @@
         <div id="studentInfo"></div>
       </div>
 
+      <!-- Student's own online dental record (MyRecords.html) -->
+      <div class="card online-card" id="onlineCard">
+        <div class="card-head">
+          <h3><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg> Online dental record</h3>
+          <span class="tag" id="onlineTag"></span>
+        </div>
+        <p class="muted" id="onlineText"></p>
+        <div class="setup-code" id="onlineCode" hidden></div>
+        <p class="error" id="onlineError"></p>
+        <div class="save-row" id="onlineActions"></div>
+      </div>
+
       <!-- Change class / student code, or delete the student -->
       <details class="card edit-card" id="editCard">
         <summary><span class="sum-title"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4"/></svg> Edit name, class or student code</span><span class="sum-hint">Grade, section, student code, remove from roster</span></summary>
@@ -1346,6 +1365,7 @@
   <script src="SchoolClasses.js"></script>
   <script src="StudentStorageInfo.js"></script>
   <script src="Students.js"></script>
+  <script src="DentalCore.js"></script>
   <script src="Dental.js"></script>
   <script src="Appointments.js"></script>
   <script src="DentalRecordPDF.js"></script>

@@ -352,3 +352,21 @@ SET teeth = (
     END)
   FROM jsonb_each(v.teeth) AS e(k, val))
 WHERE v.teeth::text LIKE '%"Crowded"%';
+
+-- ===== Student online records (Nov 2026) =====
+-- One online account per student (per identity, so it covers every school year).
+-- Passwords are stored as scrypt hashes, never as text. Safe to run again.
+CREATE TABLE IF NOT EXISTS student_accounts (
+  id                      SERIAL PRIMARY KEY,
+  identity_id             INTEGER NOT NULL UNIQUE REFERENCES student_identities(id),
+  password_hash           TEXT,                   -- NULL until the student sets a password
+  verified                BOOLEAN NOT NULL DEFAULT FALSE,  -- may see EARLIER school years' records
+  created_from_student_id INTEGER REFERENCES students(id) ON DELETE SET NULL,
+  setup_code_hash         TEXT,                   -- one-time code from the dentist
+  setup_code_expires      TIMESTAMPTZ,
+  failed_attempts         INTEGER NOT NULL DEFAULT 0,
+  locked_until            TIMESTAMPTZ,
+  created_at              TIMESTAMPTZ DEFAULT NOW(),
+  password_changed_at     TIMESTAMPTZ,
+  last_login              TIMESTAMPTZ
+);
