@@ -4,6 +4,7 @@ import { neon } from "@neondatabase/serverless";
 import { checkCode, sexFromCode, isDuplicateError, duplicateMessage } from "./_code.js";
 import { activeYear } from "./_sy.js";
 import { attachIdentity } from "./_identity.js";
+import { passwordProblem, createAccountForRegistration, makeStudentToken } from "./_student.js";
 
 // DATABASE_URL is added automatically when you connect Neon in Vercel.
 const sql = neon(process.env.DATABASE_URL);
@@ -61,6 +62,13 @@ export default async function handler(req, res) {
   if (code.error) return res.status(400).json({ error: code.error });
   const birth = cleanBirthdate(s.birthdate);
   if (birth.error) return res.status(400).json({ error: birth.error });
+  // Password for "My Dental Record" (seeing their own records online)
+  const wantsAccount = s.password !== undefined && s.password !== null && s.password !== "";
+  if (wantsAccount) {
+    const prob = passwordProblem(s.password);
+    if (prob) return res.status(400).json({ error: prob });
+    if (!birth.value) return res.status(400).json({ error: "Please enter the birthdate – you need it to sign in." });
+  }
 
   try {
     // Friendly check first; the unique index below is the real guarantee
@@ -104,7 +112,18 @@ export default async function handler(req, res) {
     } catch (e) {
       console.error("identity matching failed", e);   // registration itself is saved
     }
-    return res.status(201).json({ ok: true, id: rows[0].id });
+    // Online account: sign the student in straight away (or tell them they already have one)
+    let account = null, token = null;
+    if (wantsAccount) {
+      try {
+        const r = await createAccountForRegistration(sql, rows[0].id, s.password);
+        if (r.account) { account = "created"; token = makeStudentToken(r.account); }
+        else if (r.exists) account = "exists";
+      } catch (e) {
+        console.error("account creation failed", e);   // registration itself is saved
+      }
+    }
+    return res.status(201).json({ ok: true, id: rows[0].id, account: account, token: token });
   } catch (err) {
     if (isDuplicateError(err)) {
       return res.status(409).json({ error: duplicateMessage(grade, section, code.gender, code.number) });

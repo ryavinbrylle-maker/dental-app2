@@ -46,7 +46,14 @@ export default async function handler(req, res) {
         VALUES (${st[0].name}, ${nameKey(st[0].name)}, ${nameCompact(st[0].name)}, ${st[0].birthdate}, ${sid})
         ON CONFLICT (first_registration_id) DO UPDATE SET full_name = EXCLUDED.full_name
         RETURNING id`;
+      const before = await sql`SELECT identity_id FROM students WHERE id = ${sid}`;
       await sql`UPDATE students SET identity_id = ${idn[0].id}, match_status = 'new' WHERE id = ${sid}`;
+      // an online account made with THIS registration goes with it (it only sees this registration now)
+      if (before.length && before[0].identity_id && before[0].identity_id !== idn[0].id) {
+        await sql`UPDATE student_accounts SET identity_id = ${idn[0].id}, verified = TRUE
+                  WHERE identity_id = ${before[0].identity_id} AND created_from_student_id = ${sid}
+                    AND NOT EXISTS (SELECT 1 FROM student_accounts x WHERE x.identity_id = ${idn[0].id})`;
+      }
       await sql`UPDATE identity_matches SET status = 'rejected', decided_by = ${who}, decided_at = NOW()
                 WHERE student_id = ${sid} AND status = 'linked'`;
       return res.status(200).json({ ok: true, identity_id: idn[0].id });
@@ -72,12 +79,25 @@ export default async function handler(req, res) {
                 SET status = CASE WHEN id = ${m.id} THEN 'linked' ELSE 'rejected' END,
                     decided_by = ${who}, decided_at = NOW()
                 WHERE student_id = ${m.student_id} AND status = 'pending'`;
+      // online account: the dentist has now confirmed who this student is
+      if (old.length && old[0].identity_id && old[0].identity_id !== m.candidate_identity_id) {
+        const keep = await sql`SELECT id FROM student_accounts
+                               WHERE identity_id = ${m.candidate_identity_id} AND password_hash IS NOT NULL`;
+        if (keep.length) {   // they already had an account: keep it (and its password)
+          await sql`DELETE FROM student_accounts WHERE identity_id = ${old[0].identity_id}`;
+        } else {
+          await sql`DELETE FROM student_accounts WHERE identity_id = ${m.candidate_identity_id}`;
+          await sql`UPDATE student_accounts SET identity_id = ${m.candidate_identity_id}, verified = TRUE
+                    WHERE identity_id = ${old[0].identity_id}`;
+        }
+      }
       // remove the temporary identity if nothing uses it any more
       if (old.length && old[0].identity_id && old[0].identity_id !== m.candidate_identity_id) {
         await sql`DELETE FROM student_identities i WHERE i.id = ${old[0].identity_id}
                   AND NOT EXISTS (SELECT 1 FROM students WHERE identity_id = i.id)
                   AND NOT EXISTS (SELECT 1 FROM identity_matches WHERE candidate_identity_id = i.id)
-                  AND NOT EXISTS (SELECT 1 FROM school_year_archive WHERE identity_id = i.id)`;
+                  AND NOT EXISTS (SELECT 1 FROM school_year_archive WHERE identity_id = i.id)
+                  AND NOT EXISTS (SELECT 1 FROM student_accounts WHERE identity_id = i.id)`;
       }
       return res.status(200).json({ ok: true, linked: true });
     }
