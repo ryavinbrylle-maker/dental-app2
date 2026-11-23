@@ -5,9 +5,13 @@
 // app never stops working because of the limiter itself.
 import { createHash } from "crypto";
 
+// On Vercel the platform itself sets these headers (a visitor's own value is replaced), so they
+// can be trusted there. Anywhere else (e.g. local-server.mjs) a visitor could type them, so only
+// the real connection address is used.
 export function clientIp(req) {
-  const xf = String((req.headers && (req.headers["x-forwarded-for"] || req.headers["x-real-ip"])) || "");
-  const ip = xf.split(",")[0].trim() || (req.socket && req.socket.remoteAddress) || "unknown";
+  const h = (req && req.headers) || {};
+  const fromVercel = process.env.VERCEL ? String(h["x-vercel-forwarded-for"] || h["x-real-ip"] || h["x-forwarded-for"] || "") : "";
+  const ip = fromVercel.split(",")[0].trim() || (req.socket && req.socket.remoteAddress) || "unknown";
   return createHash("sha256").update("ip:" + ip).digest("hex").slice(0, 24);
 }
 

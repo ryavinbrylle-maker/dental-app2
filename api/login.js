@@ -1,7 +1,7 @@
 // Back end: checks the dentist's username and password and returns a
 // login token that lasts 12 hours, so the dentist doesn't need to log in again.
 import { neon } from "@neondatabase/serverless";
-import { isConfigured, same, makeToken, setSessionCookie, DENTIST_COOKIE, SESSION_SECONDS } from "./_auth.js";
+import { isConfigured, same, makeToken, setSessionCookie, DENTIST_COOKIE, SESSION_SECONDS, trustIsValid, setTrustCookie } from "./_auth.js";
 import { allow, clientIp, tooMany } from "./_rate.js";
 
 const sql = neon(process.env.DATABASE_URL);
@@ -21,10 +21,11 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Dentist login is not set up in Vercel yet" });
   }
 
-  // at most 10 tries per network per 15 minutes (and 60 in total), so passwords can't be guessed
-  if (!(await allow(sql, "dentist-login:" + clientIp(req), 10, 900)) || !(await allow(sql, "dentist-login:all", 60, 900))) {
-    return tooMany(res, 15);
-  }
+  // At most 10 tries per network per 15 minutes. On top, at most 60 tries in total per 15 minutes
+  // from browsers that have never logged in successfully – so a password-spraying attack from many
+  // networks is stopped, but it can't lock the dentist out of their own (trusted) device.
+  if (!(await allow(sql, "dentist-login:" + clientIp(req), 10, 900))) return tooMany(res, 15);
+  if (!trustIsValid(req) && !(await allow(sql, "dentist-login:untrusted", 60, 900))) return tooMany(res, 15);
   const body = req.body || {};
   const ok = same(body.username, process.env.DENTIST_USERNAME) &&
              same(body.password, process.env.DENTIST_PASSWORD);
@@ -34,5 +35,6 @@ export default async function handler(req, res) {
   }
   const token = makeToken();
   setSessionCookie(req, res, DENTIST_COOKIE, token, SESSION_SECONDS);
+  setTrustCookie(req, res);
   return res.status(200).json({ token: token });
 }

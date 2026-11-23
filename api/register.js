@@ -4,7 +4,7 @@ import { neon } from "@neondatabase/serverless";
 import { checkCode, sexFromCode, isDuplicateError, duplicateMessage } from "./_code.js";
 import { activeYear } from "./_sy.js";
 import { attachIdentity } from "./_identity.js";
-import { passwordProblem, createAccountForRegistration, makeStudentToken, setStudentCookie } from "./_student.js";
+import { passwordProblem, createAccountForRegistration, makeStudentToken, setStudentCookie, setStudentTrust } from "./_student.js";
 import { allow, clientIp, tooMany } from "./_rate.js";
 import { classExists } from "./_classes.js";
 
@@ -132,7 +132,7 @@ export default async function handler(req, res) {
     if (wantsAccount) {
       try {
         const r = await createAccountForRegistration(sql, rows[0].id, s.password);
-        if (r.account) { account = "created"; token = makeStudentToken(r.account); setStudentCookie(req, res, token); }
+        if (r.account) { account = "created"; token = makeStudentToken(r.account); setStudentCookie(req, res, token); setStudentTrust(req, res, r.account); }
         else if (r.exists) account = "exists";
       } catch (e) {
         console.error("account creation failed", e);   // registration itself is saved

@@ -13,7 +13,7 @@
 import { createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual, createHash } from "crypto";
 import { promisify } from "util";
 import { nameKey, nameCompact } from "./_identity.js";
-import { readCookie, setSessionCookie } from "./_auth.js";
+import { readCookie, setSessionCookie, appendCookie, isHttps } from "./_auth.js";
 
 const scrypt = promisify(scryptCb);
 const SESSION_HOURS = 12;
@@ -70,6 +70,23 @@ export async function accountFromToken(sql, header, req) {
   const rows = await sql`SELECT * FROM student_accounts WHERE id = ${id}`;
   if (!rows.length || !rows[0].password_hash) return null;
   return eq(t[3], sign(id + "." + expires + "." + pwVersion(rows[0]))) ? rows[0] : null;
+}
+
+// ---------- trusted device (student) ----------
+// After a successful sign-in this browser may still try even while the account is locked, so a
+// classmate who knows the name + birthdate can't lock the real student out of their own phone.
+const STRUST = "strust", STRUST_DAYS = 90;
+export function setStudentTrust(req, res, acct) {
+  const expires = Date.now() + STRUST_DAYS * 86400000;
+  const v = "st." + acct.id + "." + expires + "." + sign("strust." + acct.id + "." + expires);
+  const parts = [STRUST + "=" + v, "Path=/api/portal", "HttpOnly", "SameSite=Strict", "Max-Age=" + STRUST_DAYS * 86400];
+  if (isHttps(req)) parts.push("Secure");
+  appendCookie(res, parts.join("; "));
+}
+export function trustedAccountId(req) {
+  const t = readCookie(req, STRUST).split(".");
+  if (t.length !== 4 || t[0] !== "st" || !(Number(t[2]) > Date.now())) return null;
+  return eq(t[3], sign("strust." + t[1] + "." + t[2])) ? parseInt(t[1], 10) : null;
 }
 
 // ---------- one-time set-up codes (given by the dentist) ----------

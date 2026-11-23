@@ -18,7 +18,7 @@ import { allow, clientIp, tooMany } from "./_rate.js";
 import {
   passwordProblem, hashPassword, checkPassword, makeStudentToken, accountFromToken,
   newSetupCode, cleanSetupCode, hashSetupCode, isLocked, recordFailure, LOCK_MESSAGE,
-  identitiesFor, visibleRegistrations, SETUP_CODE_DAYS, setStudentCookie
+  identitiesFor, visibleRegistrations, SETUP_CODE_DAYS, setStudentCookie, setStudentTrust, trustedAccountId
 } from "./_student.js";
 
 const sql = neon(process.env.DATABASE_URL);
@@ -53,14 +53,16 @@ async function login(req, b, res) {
   const accts = await sql`SELECT * FROM student_accounts WHERE identity_id = ANY(${ids}) AND password_hash IS NOT NULL`;
   if (!accts.length) {
     await pause();
-    return res.status(401).json({ error: WRONG + " If you registered before online records started, ask the school dentist for a set-up code." });
+    return res.status(401).json({ error: WRONG });   // same message as everywhere: no hint that the student exists
   }
   let locked = false;
+  const trusted = trustedAccountId(req);
   for (const a of accts) {
-    if (isLocked(a)) { locked = true; continue; }
+    if (isLocked(a) && a.id !== trusted) { locked = true; continue; }   // its own trusted device may still try
     if (await checkPassword(b.password, a.password_hash)) {
       const rows = await sql`UPDATE student_accounts SET failed_attempts = 0, locked_until = NULL, last_login = NOW()
                              WHERE id = ${a.id} RETURNING *`;
+      setStudentTrust(req, res, rows[0]);
       return sendToken(req, res, rows[0]);
     }
     await recordFailure(sql, a);
@@ -100,6 +102,7 @@ async function setup(req, b, res) {
     UPDATE student_accounts SET password_hash = ${hash}, password_changed_at = NOW(), verified = TRUE,
            setup_code_hash = NULL, setup_code_expires = NULL, failed_attempts = 0, locked_until = NULL, last_login = NOW()
     WHERE id = ${a.id} RETURNING *`;
+  setStudentTrust(req, res, rows[0]);
   return sendToken(req, res, rows[0]);
 }
 
