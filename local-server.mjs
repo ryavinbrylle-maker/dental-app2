@@ -96,14 +96,18 @@ async function runApi(name, req, res, url) {
 }
 
 http.createServer(async (req, res) => {
-  const url = new URL(req.url, "http://localhost");
-  const p = decodeURIComponent(url.pathname);
+  let url, p;
+  try { url = new URL(req.url, "http://localhost"); p = decodeURIComponent(url.pathname); }
+  catch (e) { res.writeHead(400, SECURITY); return res.end("Bad request"); }   // a malformed address must not stop the server
   if (p.startsWith("/api/")) return runApi(p.slice(5).replace(/\/$/, ""), req, res, url);
   if (p === "/") { res.writeHead(302, { Location: "/StudentReg.html" }); return res.end(); }
+  // Only plain file names in the app folder itself (no sub-folders, no "..", no hidden files)
+  // and only page/script/image types – so .env.local, schema.sql, etc. can never be served.
   const rel = p.replace(/^\/+/, "");
+  const PUBLIC_EXT = new Set([".html", ".js", ".png", ".webp", ".svg", ".ico", ".jpg"]);
   const file = path.join(ROOT, rel);
-  if (PRIVATE.test(rel) || rel.startsWith("api") || !file.startsWith(ROOT) ||
-      !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(rel) || PRIVATE.test(rel) || !PUBLIC_EXT.has(path.extname(rel).toLowerCase()) ||
+      path.dirname(file) !== ROOT || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     res.writeHead(404, SECURITY); return res.end("Not found");
   }
   const h = { ...SECURITY, "Content-Type": TYPES[path.extname(file).toLowerCase()] || "application/octet-stream", "Cache-Control": "no-cache" };

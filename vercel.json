@@ -4,6 +4,46 @@
       "source": "/",
       "destination": "/StudentReg.html",
       "permanent": false
+    },
+    {
+      "source": "/schema.sql",
+      "destination": "/StudentReg.html",
+      "permanent": false
+    },
+    {
+      "source": "/APP_IMPROVEMENT_REPORT.md",
+      "destination": "/StudentReg.html",
+      "permanent": false
+    },
+    {
+      "source": "/local-server.mjs",
+      "destination": "/StudentReg.html",
+      "permanent": false
+    },
+    {
+      "source": "/Start-Local.bat",
+      "destination": "/StudentReg.html",
+      "permanent": false
+    },
+    {
+      "source": "/.gitignore",
+      "destination": "/StudentReg.html",
+      "permanent": false
+    },
+    {
+      "source": "/.env.local",
+      "destination": "/StudentReg.html",
+      "permanent": false
+    },
+    {
+      "source": "/package.json",
+      "destination": "/StudentReg.html",
+      "permanent": false
+    },
+    {
+      "source": "/.vercelignore",
+      "destination": "/StudentReg.html",
+      "permanent": false
     }
   ],
   "headers": [

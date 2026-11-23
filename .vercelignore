@@ -1,0 +1,8 @@
+# Files that are part of the project but must NOT be published on the website
+schema.sql
+*.md
+local-server.mjs
+Start-Local.bat
+.env.local
+.gitignore
+node_modules
