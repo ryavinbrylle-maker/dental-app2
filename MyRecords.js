@@ -116,6 +116,7 @@ $("setupForm").addEventListener("submit", function (e) {
     .finally(function () { busy(btn, false); });
 });
 $("signOutBtn").addEventListener("click", function () {
+  post({ action: "logout" }).catch(function () {});   // removes the HttpOnly session cookie
   saveToken(null); data = null;
   showTab("signin");
   showView("auth");

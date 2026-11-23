@@ -370,3 +370,29 @@ CREATE TABLE IF NOT EXISTS student_accounts (
   password_changed_at     TIMESTAMPTZ,
   last_login              TIMESTAMPTZ
 );
+
+-- ===== Rate limiting (Nov 2026) =====
+-- Counts sign-in / registration attempts per (hashed) network address. Safe to run again.
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key           TEXT PRIMARY KEY,
+  window_start  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  hits          INTEGER NOT NULL DEFAULT 0
+);
+
+-- ===== Row-level security (Nov 2026) =====
+-- The app reaches the database ONLY through its own server code, which signs in as the
+-- database owner (owners are not affected by RLS unless FORCE is used, so the app keeps working).
+-- Turning RLS on with no policies means any OTHER database role or tool (for example a
+-- read-only role, or Neon's Data API if it is ever switched on) sees no rows at all.
+-- Safe to run again.
+ALTER TABLE students             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_identities   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_accounts     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE visits               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE appointments         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE appointment_events   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE identity_matches     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE school_years         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE school_year_archive  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sync_ops             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rate_limits          ENABLE ROW LEVEL SECURITY;

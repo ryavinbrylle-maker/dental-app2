@@ -61,6 +61,8 @@ const TYPES = {
 };
 const SECURITY = {
   "X-Content-Type-Options": "nosniff", "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY",
+  // same rules as vercel.json (QRCode.html also loads its QR library from cdnjs)
+  "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; object-src 'none'; frame-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 };
 // files that must never be served to a browser
 const PRIVATE = /^(\.|node_modules|local-server\.mjs|start-local\.bat|package(-lock)?\.json|schema\.sql|test-students\.sql)/i;
@@ -106,6 +108,7 @@ http.createServer(async (req, res) => {
   }
   const h = { ...SECURITY, "Content-Type": TYPES[path.extname(file).toLowerCase()] || "application/octet-stream", "Cache-Control": "no-cache" };
   if (rel === "Students.html") h["X-Robots-Tag"] = "noindex, nofollow";
+  if (rel === "QRCode.html") h["Content-Security-Policy"] = SECURITY["Content-Security-Policy"].replace("script-src 'self'", "script-src 'self' https://cdnjs.cloudflare.com");
   res.writeHead(200, h);
   fs.createReadStream(file).pipe(res);
 }).listen(PORT, () => {

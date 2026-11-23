@@ -98,6 +98,7 @@
       border: 1.5px solid var(--border); border-radius: 999px; color: var(--primary); font-weight: 700; text-decoration: none; font-size: 14px; white-space: nowrap; }
     header .hdr-link:hover { border-color: var(--primary); background: var(--primary-soft); }
     @media (max-width: 600px) { .row.pw-row { flex-direction: column; gap: 0; } }
+    .hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
   </style>
 </head>
 <body>
@@ -216,6 +217,12 @@
       </div>
     </div>
     <label class="show-pw"><input type="checkbox" id="showPw"> Show password</label>
+
+    <!-- spam protection: people never see this box; automatic form-fillers do -->
+    <div class="hp" aria-hidden="true">
+      <label for="website">Website</label>
+      <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+    </div>
 
     <!-- ===== CONSENT ===== -->
     <h2>Consent</h2>

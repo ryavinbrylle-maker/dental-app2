@@ -1,6 +1,7 @@
 // Sends the form to the back end (api/register.js on Vercel),
 // which saves it in the Neon database.
 const API_URL = "/api/register";
+const FORM_OPENED = Date.now();   // spam protection: a person needs more than a moment to fill in the form
 
 const form = document.getElementById("regForm");
 const message = document.getElementById("message");
@@ -207,6 +208,8 @@ form.addEventListener("submit", function (e) {
 
     consent: document.getElementById("consent").checked,
     password: document.getElementById("password").value,
+    website: document.getElementById("website").value,   // hidden spam trap (people leave it empty)
+    elapsedMs: Date.now() - FORM_OPENED,
     registeredOn: new Date().toISOString()
   };
 

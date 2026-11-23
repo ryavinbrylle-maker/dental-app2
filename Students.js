@@ -647,6 +647,8 @@ function downloadCsv() {
     if (v === null || v === undefined) return "";
     if (Array.isArray(v)) v = v.join("; ");
     v = String(v);
+    // spreadsheet formula injection: a cell starting with = + - @ would run as a formula in Excel
+    if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
     return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
   };
   const lines = [cols.join(",")].concat(list.map(function (s) {
@@ -712,6 +714,8 @@ function login() {
 
 function logout(reason) {
   stopAutoRefresh();
+  // remove the HttpOnly session cookie on the server too (works only online; it expires anyway)
+  try { fetch("/api/login", { method: "DELETE" }).catch(function () {}); } catch (e) {}
   clearToken();
   syncPanel.hidden = true;
   document.body.classList.remove("signed-in");

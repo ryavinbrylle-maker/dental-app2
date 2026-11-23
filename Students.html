@@ -1370,11 +1370,6 @@
   <script src="Appointments.js"></script>
   <script src="DentalRecordPDF.js"></script>
   <script src="SchoolYearDentalRecords.js"></script>
-  <script>
-    // Keep the app's files on this device so it opens without internet (sw.js)
-    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-      navigator.serviceWorker.register("sw.js").catch(function (e) { console.warn("Offline app files not available", e); });
-    }
-  </script>
+  <script src="sw-register.js"></script>
 </body>
 </html>
