@@ -14,10 +14,11 @@
 //   POST /api/portal {action:"verify", student_id}    -> let the student see earlier school years
 import { neon } from "@neondatabase/serverless";
 import { isConfigured, tokenIsValid } from "./_auth.js";
+import { allow, clientIp, tooMany } from "./_rate.js";
 import {
   passwordProblem, hashPassword, checkPassword, makeStudentToken, accountFromToken,
   newSetupCode, cleanSetupCode, hashSetupCode, isLocked, recordFailure, LOCK_MESSAGE,
-  identitiesFor, visibleRegistrations, SETUP_CODE_DAYS
+  identitiesFor, visibleRegistrations, SETUP_CODE_DAYS, setStudentCookie
 } from "./_student.js";
 
 const sql = neon(process.env.DATABASE_URL);
@@ -37,9 +38,14 @@ function ageFrom(b) {
   if (now.getUTCMonth() < d.getUTCMonth() || (now.getUTCMonth() === d.getUTCMonth() && now.getUTCDate() < d.getUTCDate())) a--;
   return a >= 0 && a <= 30 ? a : null;
 }
+function sendToken(req, res, acct) {
+  const token = makeStudentToken(acct);
+  setStudentCookie(req, res, token);
+  return res.status(200).json({ token: token });
+}
 function pause() { return new Promise(function (r) { setTimeout(r, 400); }); }   // slows down guessing
 
-async function login(b, res) {
+async function login(req, b, res) {
   const birth = validDate(b.birthdate);
   if (!b.name || !birth || !b.password) return res.status(400).json({ error: "Please enter your name, birthdate and password." });
   const ids = await identitiesFor(sql, String(b.name).slice(0, 120), birth);
@@ -55,7 +61,7 @@ async function login(b, res) {
     if (await checkPassword(b.password, a.password_hash)) {
       const rows = await sql`UPDATE student_accounts SET failed_attempts = 0, locked_until = NULL, last_login = NOW()
                              WHERE id = ${a.id} RETURNING *`;
-      return res.status(200).json({ token: makeStudentToken(rows[0]) });
+      return sendToken(req, res, rows[0]);
     }
     await recordFailure(sql, a);
   }
@@ -63,7 +69,7 @@ async function login(b, res) {
   return res.status(locked && accts.length === 1 ? 429 : 401).json({ error: locked && accts.length === 1 ? LOCK_MESSAGE : WRONG });
 }
 
-async function setup(b, res) {
+async function setup(req, b, res) {
   const code = cleanSetupCode(b.setup_code);
   const birth = validDate(b.birthdate);
   if (!code || !birth) return res.status(400).json({ error: "Please enter the set-up code from the dentist and your birthdate." });
@@ -94,7 +100,7 @@ async function setup(b, res) {
     UPDATE student_accounts SET password_hash = ${hash}, password_changed_at = NOW(), verified = TRUE,
            setup_code_hash = NULL, setup_code_expires = NULL, failed_attempts = 0, locked_until = NULL, last_login = NOW()
     WHERE id = ${a.id} RETURNING *`;
-  return res.status(200).json({ token: makeStudentToken(rows[0]) });
+  return sendToken(req, res, rows[0]);
 }
 
 async function myRecords(acct, res) {
@@ -127,7 +133,7 @@ async function myRecords(acct, res) {
   });
 }
 
-async function changePassword(acct, b, res) {
+async function changePassword(req, acct, b, res) {
   if (!(await checkPassword(b.current, acct.password_hash))) {
     await recordFailure(sql, acct);
     return res.status(401).json({ error: "Your current password is not correct." });
@@ -137,7 +143,7 @@ async function changePassword(acct, b, res) {
   const hash = await hashPassword(b.password);
   const rows = await sql`UPDATE student_accounts SET password_hash = ${hash}, password_changed_at = NOW()
                          WHERE id = ${acct.id} RETURNING *`;
-  return res.status(200).json({ token: makeStudentToken(rows[0]) });
+  return sendToken(req, res, rows[0]);
 }
 
 // ----- dentist side -----
@@ -185,23 +191,34 @@ export default async function handler(req, res) {
   if (!isConfigured()) return res.status(500).json({ error: "The app is not set up yet." });
   try {
     const auth = req.headers.authorization;
-    const isDentist = tokenIsValid(auth);
+    const isDentist = tokenIsValid(auth, req);
     const b = req.body || {};
 
     if (req.method === "GET") {
       if (isDentist && req.query.student_id) return await dentistStatus(parseInt(req.query.student_id, 10), res);
-      const acct = await accountFromToken(sql, auth);
+      const acct = await accountFromToken(sql, auth, req);
       if (!acct) return res.status(401).json({ error: "Please sign in again." });
       return await myRecords(acct, res);
     }
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-    if (b.action === "login") return await login(b, res);
-    if (b.action === "setup") return await setup(b, res);
+    if (b.action === "logout") {
+      setStudentCookie(req, res, "");
+      return res.status(200).json({ ok: true });
+    }
+    if (b.action === "login") {
+      // a whole class may share the school's network, so the limit per network is generous
+      if (!(await allow(sql, "portal-login:" + clientIp(req), 60, 900))) return tooMany(res, 15);
+      return await login(req, b, res);
+    }
+    if (b.action === "setup") {
+      if (!(await allow(sql, "portal-setup:" + clientIp(req), 20, 900))) return tooMany(res, 15);
+      return await setup(req, b, res);
+    }
     if (b.action === "password") {
-      const acct = await accountFromToken(sql, auth);
+      const acct = await accountFromToken(sql, auth, req);
       if (!acct) return res.status(401).json({ error: "Please sign in again." });
-      return await changePassword(acct, b, res);
+      return await changePassword(req, acct, b, res);
     }
     if (b.action === "setupcode" || b.action === "verify") {
       if (!isDentist) return res.status(401).json({ error: "Your login has expired. Please log in again." });

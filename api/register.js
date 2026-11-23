@@ -4,7 +4,9 @@ import { neon } from "@neondatabase/serverless";
 import { checkCode, sexFromCode, isDuplicateError, duplicateMessage } from "./_code.js";
 import { activeYear } from "./_sy.js";
 import { attachIdentity } from "./_identity.js";
-import { passwordProblem, createAccountForRegistration, makeStudentToken } from "./_student.js";
+import { passwordProblem, createAccountForRegistration, makeStudentToken, setStudentCookie } from "./_student.js";
+import { allow, clientIp, tooMany } from "./_rate.js";
+import { classExists } from "./_classes.js";
 
 // DATABASE_URL is added automatically when you connect Neon in Vercel.
 const sql = neon(process.env.DATABASE_URL);
@@ -48,6 +50,16 @@ export default async function handler(req, res) {
 
   const s = req.body || {};
 
+  // ---- bot protection ----
+  // 1. a hidden "website" field that people never see or fill in
+  if (s.website) return res.status(400).json({ error: "Could not save. Please reload the page and try again." });
+  // 2. a form filled in less than 2 seconds was not filled in by a person
+  if (s.elapsedMs !== undefined && Number(s.elapsedMs) < 2000) {
+    return res.status(400).json({ error: "That was very fast – please check the form and press Confirm again." });
+  }
+  // 3. at most 150 registrations per network per hour (a whole school may share one network)
+  if (!(await allow(sql, "register:" + clientIp(req), 150, 3600))) return tooMany(res, 60);
+
   // Required: name, grade, section and student code (never trust the browser).
   // Blood type, height, weight, address, parent/guardian and dental history are no longer
   // collected by the form, so they are not accepted from the public endpoint either.
@@ -57,6 +69,9 @@ export default async function handler(req, res) {
   const section = cleanText(s.section, 40);
   if (!grade || !section) {
     return res.status(400).json({ error: "Please choose the grade and section" });
+  }
+  if (!classExists(grade, section)) {
+    return res.status(400).json({ error: "Please choose a grade and section from the list." });
   }
   const code = checkCode(s.codeGender, s.codeNumber);
   if (code.error) return res.status(400).json({ error: code.error });
@@ -117,13 +132,13 @@ export default async function handler(req, res) {
     if (wantsAccount) {
       try {
         const r = await createAccountForRegistration(sql, rows[0].id, s.password);
-        if (r.account) { account = "created"; token = makeStudentToken(r.account); }
+        if (r.account) { account = "created"; token = makeStudentToken(r.account); setStudentCookie(req, res, token); }
         else if (r.exists) account = "exists";
       } catch (e) {
         console.error("account creation failed", e);   // registration itself is saved
       }
     }
-    return res.status(201).json({ ok: true, id: rows[0].id, account: account, token: token });
+    return res.status(201).json({ ok: true, account: account, token: token });   // nothing more than the page needs
   } catch (err) {
     if (isDuplicateError(err)) {
       return res.status(409).json({ error: duplicateMessage(grade, section, code.gender, code.number) });

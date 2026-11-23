@@ -15,6 +15,7 @@ import { isConfigured, tokenIsValid } from "./_auth.js";
 import { activeYear } from "./_sy.js";
 import { checkCode, sexFromCode, isDuplicateError, duplicateMessage } from "./_code.js";
 import { nameKey, nameCompact } from "./_identity.js";
+import { classExists } from "./_classes.js";
 
 const sql = neon(process.env.DATABASE_URL);
 
@@ -37,6 +38,7 @@ async function enroll(b, res) {
   const grade = cleanText(b.grade, 40);
   const section = cleanText(b.section, 40);
   if (!grade || !section) return res.status(400).json({ error: "Please choose the new grade and section." });
+  if (!classExists(grade, section)) return res.status(400).json({ error: "Please choose a grade and section from the list." });
   const code = checkCode(b.codeGender, b.codeNumber);
   if (code.error) return res.status(400).json({ error: code.error });
 
@@ -91,7 +93,7 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Robots-Tag", "noindex");
   if (!isConfigured()) return res.status(500).json({ error: "Dentist login is not set up in Vercel yet" });
-  if (!tokenIsValid(req.headers.authorization)) {
+  if (!tokenIsValid(req.headers.authorization, req)) {
     return res.status(401).json({ error: "Your login has expired. Please log in again." });
   }
 
@@ -121,6 +123,7 @@ export default async function handler(req, res) {
       const section = cleanText(b.section, 40);
       if (!name) return res.status(400).json({ error: "Student name is required" });
       if (!grade || !section) return res.status(400).json({ error: "Grade and section are required" });
+      if (!classExists(grade, section)) return res.status(400).json({ error: "Please choose a grade and section from the list." });
       const code = checkCode(b.codeGender, b.codeNumber);
       if (code.error) return res.status(400).json({ error: code.error });
 

@@ -57,7 +57,7 @@ function liveSnapshot(studentId) {
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (!isConfigured()) return res.status(500).json({ error: "Dentist login is not set up in Vercel yet" });
-  if (!tokenIsValid(req.headers.authorization)) {
+  if (!tokenIsValid(req.headers.authorization, req)) {
     return res.status(401).json({ error: "Your login has expired. Please log in again." });
   }
   try {

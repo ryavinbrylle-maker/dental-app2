@@ -13,6 +13,7 @@
 import { createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual, createHash } from "crypto";
 import { promisify } from "util";
 import { nameKey, nameCompact } from "./_identity.js";
+import { readCookie, setSessionCookie } from "./_auth.js";
 
 const scrypt = promisify(scryptCb);
 const SESSION_HOURS = 12;
@@ -54,9 +55,15 @@ export function makeStudentToken(acct) {
   const expires = Date.now() + SESSION_HOURS * 3600 * 1000;
   return "s." + acct.id + "." + expires + "." + sign(acct.id + "." + expires + "." + pwVersion(acct));
 }
-// Returns the account row, or null
-export async function accountFromToken(sql, header) {
-  const t = String(header || "").replace(/^Bearer\s+/i, "").split(".");
+export const STUDENT_COOKIE = "ssess";
+export function setStudentCookie(req, res, token) {
+  setSessionCookie(req, res, STUDENT_COOKIE, token, SESSION_HOURS * 3600);
+}
+// Returns the account row, or null. With req: the HttpOnly cookie must hold the same token.
+export async function accountFromToken(sql, header, req) {
+  const raw = String(header || "").replace(/^Bearer\s+/i, "");
+  if (req && !eq(readCookie(req, STUDENT_COOKIE), raw)) return null;
+  const t = raw.split(".");
   if (t.length !== 4 || t[0] !== "s") return null;
   const id = parseInt(t[1], 10), expires = Number(t[2]);
   if (!id || !expires || expires < Date.now()) return null;
