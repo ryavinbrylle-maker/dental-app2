@@ -7,6 +7,7 @@ import { attachIdentity } from "./_identity.js";
 import { passwordProblem, createAccountForRegistration, makeStudentToken, setStudentCookie, setStudentTrust } from "./_student.js";
 import { allow, clientIp, tooMany } from "./_rate.js";
 import { classExists } from "./_classes.js";
+import { ensureTeacherSchema } from "./_teacher.js";
 
 // DATABASE_URL is added automatically when you connect Neon in Vercel.
 const sql = neon(process.env.DATABASE_URL);
@@ -86,6 +87,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    await ensureTeacherSchema(sql);   // the section's teacher approves new registrations
     // Friendly check first; the unique index below is the real guarantee
     const year = await activeYear(sql);
     const taken = await sql`
@@ -105,7 +107,7 @@ export default async function handler(req, res) {
         parent_name, relationship, contact, emergency_contact,
         conditions, other_conditions, allergies, medications,
         last_visit, brushing, dental_concerns, dental_notes,
-        consent, school_year
+        consent, school_year, teacher_status
       ) VALUES (
         ${name}, ${code.gender}, ${code.number}, ${birth.value}, ${cleanAge(s.age)},
         ${sexFromCode(code.gender)}, ${null}, ${grade}, ${section},
@@ -114,7 +116,7 @@ export default async function handler(req, res) {
         ${cleanConditions(s.conditions)}, ${cleanText(s.otherConditions, 300)}, ${cleanText(s.allergies, 300)},
         ${cleanText(s.medications, 300)},
         ${null}, ${null}, ${[]}, ${null},
-        ${s.consent === true}, ${year}
+        ${s.consent === true}, ${year}, ${"pending"}
       )
       RETURNING id
     `;

@@ -15,6 +15,8 @@
 import { neon } from "@neondatabase/serverless";
 import { isConfigured, tokenIsValid } from "./_auth.js";
 import { allow, clientIp, tooMany } from "./_rate.js";
+import { ensureTeacherSchema } from "./_teacher.js";
+import { teacherHandler } from "./_teacherApi.js";
 import {
   passwordProblem, hashPassword, checkPassword, makeStudentToken, accountFromToken,
   newSetupCode, cleanSetupCode, hashSetupCode, isLocked, recordFailure, LOCK_MESSAGE,
@@ -107,7 +109,19 @@ async function setup(req, b, res) {
 }
 
 async function myRecords(acct, res) {
+  await ensureTeacherSchema(sql);
   const regs = await visibleRegistrations(sql, acct);
+  // The newest registration must be approved by the section's teacher first (NULL = from before this rule)
+  const newest = regs[0];
+  if (newest && newest.teacher_status && newest.teacher_status !== "approved") {
+    const hasTeacher = await sql`SELECT 1 FROM teachers WHERE status = 'approved'
+                                 AND grade = ${newest.grade} AND section = ${newest.section} LIMIT 1`;
+    return res.status(200).json({
+      waiting: newest.teacher_status,            // "pending" or "rejected"
+      student: { name: newest.name, grade: newest.grade, section: newest.section, school_year: newest.school_year },
+      teacher_ready: hasTeacher.length > 0
+    });
+  }
   const all = await sql`SELECT COUNT(*)::int AS n FROM students WHERE identity_id = ${acct.identity_id}`;
   const ident = await sql`SELECT full_name, birthdate FROM student_identities WHERE id = ${acct.identity_id}`;
   const ids = regs.map(function (r) { return r.id; });
@@ -189,6 +203,7 @@ async function dentistVerify(studentId, res) {
 }
 
 export default async function handler(req, res) {
+  if (req.query && req.query.as === "teacher") return teacherHandler(req, res);   // teacher accounts
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Robots-Tag", "noindex");
   if (!isConfigured()) return res.status(500).json({ error: "The app is not set up yet." });
