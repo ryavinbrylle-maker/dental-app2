@@ -7,7 +7,7 @@
 //   • teachers only ever see name, student code, birthdate and registration date – never dental records
 //   • passwords: scrypt (same as students); 5 wrong passwords lock the account for 15 minutes
 //   • session: signed token + HttpOnly cookie "tsess" (a separate key from the dentist and students)
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { readCookie, setSessionCookie } from "./_auth.js";
 
 const SESSION_HOURS = 12;
@@ -41,6 +41,8 @@ export async function ensureTeacherSchema(sql) {
       password_changed_at TIMESTAMPTZ DEFAULT NOW(),
       last_login TIMESTAMPTZ)`;
   await sql`ALTER TABLE teachers ENABLE ROW LEVEL SECURITY`;
+  // true after the dentist resets the password: the teacher must choose a new one
+  await sql`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS must_change BOOLEAN NOT NULL DEFAULT false`;
   // a registration's approval by the section's teacher: NULL = registered before this feature (counts as approved)
   await sql`ALTER TABLE students ADD COLUMN IF NOT EXISTS teacher_status TEXT`;
   await sql`ALTER TABLE students ADD COLUMN IF NOT EXISTS teacher_id INTEGER`;
@@ -79,4 +81,13 @@ export async function teacherFromToken(sql, req) {
   const rows = await sql`SELECT * FROM teachers WHERE id = ${id}`;
   if (!rows.length || rows[0].status === "removed") return null;
   return eq(t[3], sign(id + "." + expires + "." + pwVersion(rows[0]))) ? rows[0] : null;
+}
+
+// Temporary password the dentist reads out to a teacher who forgot theirs (no 0/O, 1/l/I)
+export function tempPassword() {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const b = randomBytes(10);
+  let s = "";
+  for (let i = 0; i < 10; i++) s += chars[b[i] % chars.length];
+  return s;
 }

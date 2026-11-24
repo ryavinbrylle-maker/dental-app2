@@ -9,11 +9,13 @@
 //   POST /api/portal?as=teacher {action:"reject",  student_id}   -> "not in my section / not my student"
 //   POST /api/portal?as=teacher {action:"move", student_id, grade, section, codeNumber?}
 //        -> fixes a wrong section; the student then waits for the new section's teacher
+//   POST /api/portal?as=teacher {action:"password", current, password}  -> change own password (new session)
 //   POST /api/portal?as=teacher {action:"logout"}
 // Dentist (dentist token):
 //   GET  /api/portal?as=teacher?list=1                                 -> every teacher account
 //   POST /api/portal?as=teacher {action:"teacher_approve" | "teacher_reject" | "teacher_remove", teacher_id}
 //   POST /api/portal?as=teacher {action:"teacher_section", teacher_id, grade, section}
+//   POST /api/portal?as=teacher {action:"teacher_reset", teacher_id}  -> { temp_password } (forgot password / locked)
 import { neon } from "@neondatabase/serverless";
 import { isConfigured, tokenIsValid } from "./_auth.js";
 import { allow, clientIp, tooMany } from "./_rate.js";
@@ -22,7 +24,7 @@ import { classExists } from "./_classes.js";
 import { MAX_CODE_NUMBER, isDuplicateError } from "./_code.js";
 import { hashPassword, checkPassword, isLocked } from "./_student.js";
 import {
-  ensureTeacherSchema, cleanUsername, teacherPasswordProblem, makeTeacherToken, setTeacherCookie, teacherFromToken
+  ensureTeacherSchema, cleanUsername, teacherPasswordProblem, makeTeacherToken, setTeacherCookie, teacherFromToken, tempPassword
 } from "./_teacher.js";
 
 const sql = neon(process.env.DATABASE_URL);
@@ -38,7 +40,7 @@ async function teacherFailure(t) {
 }
 function publicTeacher(t) {
   return { id: t.id, full_name: t.full_name, username: t.username, grade: t.grade, section: t.section, status: t.status,
-           created_at: t.created_at, last_login: t.last_login };
+           created_at: t.created_at, last_login: t.last_login, must_change: !!t.must_change };
 }
 
 // ---------- teacher: sign up / sign in ----------
@@ -64,12 +66,12 @@ async function signup(req, b, res) {
 }
 
 async function login(req, b, res) {
-  if (!(await allow(sql, "teacher-login:" + clientIp(req), 20, 900))) return tooMany(res, 15);
+  if (!(await allow(sql, "teacher-login:" + clientIp(req), 60, 900))) return tooMany(res, 15);
   const username = cleanUsername(b.username);
   const rows = username ? await sql`SELECT * FROM teachers WHERE username = ${username} AND status <> 'removed'` : [];
   const t = rows[0];
   if (!t) { await pause(); return res.status(401).json({ error: WRONG }); }
-  if (isLocked(t)) return res.status(429).json({ error: "Too many wrong tries. Please wait 15 minutes and try again." });
+  if (isLocked(t)) return res.status(429).json({ error: "Too many wrong tries. Please wait 15 minutes, or ask the school dentist to reset your password." });
   if (!(await checkPassword(b.password, t.password_hash))) { await teacherFailure(t); await pause(); return res.status(401).json({ error: WRONG }); }
   const up = await sql`UPDATE teachers SET failed_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = ${t.id} RETURNING *`;
   const token = makeTeacherToken(up[0]);
@@ -152,7 +154,29 @@ async function move(t, b, res) {
   return res.status(200).json({ ok: true, code: s.code_gender + "-" + number, grade: grade, section: section });
 }
 
+async function changePassword(req, t, b, res) {
+  if (!(await checkPassword(b.current, t.password_hash))) { await pause(); return res.status(400).json({ error: "Your current password is not correct." }); }
+  const prob = teacherPasswordProblem(b.password);
+  if (prob) return res.status(400).json({ error: prob });
+  if (b.password === b.current) return res.status(400).json({ error: "Please choose a password that is different from the old one." });
+  const up = await sql`UPDATE teachers SET password_hash = ${await hashPassword(b.password)}, password_changed_at = NOW(), must_change = false
+                       WHERE id = ${t.id} RETURNING *`;
+  const token = makeTeacherToken(up[0]);   // old sessions end (the token is tied to the password)
+  setTeacherCookie(req, res, token);
+  return res.status(200).json({ ok: true, token: token });
+}
+
 // ---------- dentist: manage teachers ----------
+async function dentistReset(b, res) {
+  const id = parseInt(b.teacher_id, 10);
+  if (!id) return res.status(400).json({ error: "teacher_id is required" });
+  const temp = tempPassword();
+  const rows = await sql`UPDATE teachers SET password_hash = ${await hashPassword(temp)}, password_changed_at = NOW(), must_change = true,
+                           failed_attempts = 0, locked_until = NULL
+                         WHERE id = ${id} AND status <> 'removed' RETURNING username`;
+  if (!rows.length) return res.status(404).json({ error: "Teacher not found" });
+  return res.status(200).json({ ok: true, username: rows[0].username, temp_password: temp });
+}
 async function dentistList(res) {
   const rows = await sql`SELECT * FROM teachers WHERE status <> 'removed' ORDER BY (status = 'pending') DESC, grade, section, full_name`;
   return res.status(200).json({ teachers: rows.map(publicTeacher) });
@@ -200,11 +224,15 @@ export async function teacherHandler(req, res) {
 
     if (/^teacher_/.test(String(b.action || ""))) {
       if (!isDentist) return res.status(401).json({ error: "Your login has expired. Please log in again." });
-      return b.action === "teacher_section" ? await dentistSection(b, res) : await dentistDecide(b, res);
+      if (b.action === "teacher_section") return await dentistSection(b, res);
+      if (b.action === "teacher_reset") return await dentistReset(b, res);
+      if (!["teacher_approve", "teacher_reject", "teacher_remove"].includes(b.action)) return res.status(400).json({ error: "Unknown action" });
+      return await dentistDecide(b, res);
     }
 
     const t = await teacherFromToken(sql, req);
     if (!t) return res.status(401).json({ error: "Please sign in again." });
+    if (b.action === "password") return await changePassword(req, t, b, res);   // also while waiting for approval
     if (t.status !== "approved") return res.status(403).json({ error: "Your teacher account is waiting for the school dentist's approval." });
     if (b.action === "approve") return await decide(t, b, res, "approved");
     if (b.action === "reject") return await decide(t, b, res, "rejected");
