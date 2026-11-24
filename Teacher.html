@@ -241,14 +241,15 @@
         <form id="signInForm" novalidate>
           <div class="field">
             <label for="siUser">Username</label>
-            <input type="text" id="siUser" autocomplete="username" autocapitalize="none" spellcheck="false">
+            <input type="text" id="siUser" name="teacher-username" autocomplete="section-teacher username" autocapitalize="none" spellcheck="false">
           </div>
           <div class="field">
             <label for="siPassword">Password</label>
-            <input type="password" id="siPassword" autocomplete="current-password">
+            <input type="password" id="siPassword" name="teacher-password" autocomplete="section-teacher current-password">
           </div>
           <label class="check"><input type="checkbox" class="showPw" data-for="siPassword"> Show password</label>
           <button type="submit" class="full" id="signInBtn">Sign in</button>
+          <p class="muted small" style="margin:12px 0 0;text-align:center">Forgot your password? Ask the school dentist to reset it.</p>
         </form>
 
         <form id="signUpForm" novalidate hidden>
@@ -268,15 +269,15 @@
           </div>
           <div class="field">
             <label for="suUser">Username</label>
-            <input type="text" id="suUser" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. msantos">
+            <input type="text" id="suUser" name="teacher-new-username" autocomplete="section-teacher username" autocapitalize="none" spellcheck="false" placeholder="e.g. msantos">
           </div>
           <div class="field">
             <label for="suPassword">Password</label>
-            <input type="password" id="suPassword" autocomplete="new-password" placeholder="At least 8 characters">
+            <input type="password" id="suPassword" name="teacher-new-password" autocomplete="section-teacher new-password" placeholder="At least 8 characters">
           </div>
           <div class="field">
             <label for="suPassword2">Type it again</label>
-            <input type="password" id="suPassword2" autocomplete="new-password">
+            <input type="password" id="suPassword2" name="teacher-new-password2" autocomplete="section-teacher new-password">
           </div>
           <div class="hp" aria-hidden="true"><label for="suWebsite">Website</label><input type="text" id="suWebsite" tabindex="-1" autocomplete="off"></div>
           <label class="check"><input type="checkbox" class="showPw" data-for="suPassword,suPassword2"> Show password</label>
@@ -294,7 +295,8 @@
       <div class="card auth" style="text-align:center">
         <h2 id="pendTitle" style="justify-content:center"></h2>
         <p id="pendText"></p>
-        <div class="row-end" style="justify-content:center"><button type="button" class="secondary" id="pendRefresh">Check again</button></div>
+        <div class="row-end" style="justify-content:center"><button type="button" class="secondary" id="pendRefresh">Check again</button>
+          <button type="button" class="secondary" id="pwBtn2">Change password</button></div>
       </div>
     </section>
 
@@ -304,6 +306,7 @@
         <h2 id="tName"></h2>
         <div class="pills" id="tPills"></div>
         <p class="muted small" style="margin:10px 0 0">You only see each student's name, code and birthdate – never their dental records.</p>
+        <div class="row-end" style="justify-content:flex-start;margin-top:12px"><button type="button" class="secondary" id="pwBtn">Change password</button></div>
       </div>
 
       <div class="card">
@@ -355,6 +358,32 @@
       <div class="row-end">
         <button type="button" class="secondary" id="mvCancel">Cancel</button>
         <button type="submit" id="mvSave">Move</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- change password -->
+  <div class="modal" id="pwDialog" hidden role="dialog" aria-modal="true" aria-labelledby="pwTitle">
+    <form class="card" id="pwForm" novalidate>
+      <h2 id="pwTitle">Change password</h2>
+      <p class="muted small" id="pwNote" style="margin:0 0 12px"></p>
+      <div class="field">
+        <label for="pwCurrent" id="pwCurrentLabel">Current password</label>
+        <input type="password" id="pwCurrent" name="teacher-current-password" autocomplete="section-teacher current-password">
+      </div>
+      <div class="field">
+        <label for="pwNew">New password</label>
+        <input type="password" id="pwNew" name="teacher-change-password" autocomplete="section-teacher new-password" placeholder="At least 8 characters">
+      </div>
+      <div class="field">
+        <label for="pwNew2">Type it again</label>
+        <input type="password" id="pwNew2" name="teacher-change-password2" autocomplete="section-teacher new-password">
+      </div>
+      <label class="check"><input type="checkbox" class="showPw" data-for="pwCurrent,pwNew,pwNew2"> Show passwords</label>
+      <p class="msg" id="pwMsg" role="alert"></p>
+      <div class="row-end">
+        <button type="button" class="secondary" id="pwCancel">Cancel</button>
+        <button type="submit" id="pwSave">Save</button>
       </div>
     </form>
   </div>

@@ -409,3 +409,10 @@ An automated attack suite (`attack_test.py`, 39 checks) was run against a local 
 **Security.** Teacher sessions use their own signed token plus an HttpOnly cookie (`tsess`), separate from the dentist's and the students' sessions; a teacher token can't open dentist or student pages. Five wrong passwords lock a teacher account for 15 minutes, and sign-in and sign-up are rate-limited. Sign-up uses the same bot checks as registration, and the new table has row-level security on.
 
 **Technical.** The teacher API is served through `/api/portal?as=teacher`, because Vercel's free plan allows 12 functions and the app already uses 12. The `teachers` table and 3 new `students` columns (`teacher_status`, `teacher_id`, `teacher_decided_at`) are created automatically the first time they're needed; they're also in `schema.sql`. The new test suite `teacher_test.py` passes 86/86, and every earlier suite still passes.
+
+**Fix (24 Nov 2026): teacher sign-in.** Browsers filled the teacher Password box with a password saved for the same website (for example the dentist's), and what the teacher typed was added after it, so sign-in failed. Now the first key typed in a pre-filled box replaces its contents, changing the username empties the box, and a wrong password empties it with a tip to tick *Show password*. Also added:
+- **Reset password** on the dentist's Teachers page: it shows a 10-character temporary password once and unlocks the account. The teacher must choose a new password at their next sign-in.
+- **Change password** for teachers.
+- The teacher sign-in limit is raised to 60 tries per 15 minutes per network, because teachers share the school Wi-Fi.
+
+`teacher_test.py`: 107/107.

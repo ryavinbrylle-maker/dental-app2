@@ -75,14 +75,35 @@ fillGrades($("suGrade"), $("suSection"));
 $("suGrade").addEventListener("change", function () { fillSections($("suGrade"), $("suSection")); });
 const openedAt = Date.now();
 
+// Browsers often fill in a password they saved for this website (for example the dentist's), and
+// what the teacher types is then added after it. So: typing in a filled box replaces it, changing the
+// username empties it, and a wrong password empties it again.
+let pwTyped = false;
+function replaceOnFocus(box) {
+  // first key or paste in a box the browser filled: start from empty instead of adding to it
+  box.addEventListener("keydown", function (e) {
+    if (!pwTyped && box.value && e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey) box.value = "";
+    pwTyped = true;
+  });
+  box.addEventListener("paste", function () { if (!pwTyped) box.value = ""; pwTyped = true; });
+  box.addEventListener("input", function () { pwTyped = true; });
+}
+replaceOnFocus($("siPassword"));
+$("siUser").addEventListener("input", function () { $("siPassword").value = ""; pwTyped = false; });
 $("signInForm").addEventListener("submit", function (e) {
   e.preventDefault();
   const btn = $("signInBtn");
   if (!$("siUser").value.trim() || !$("siPassword").value) { setMsg($("authMsg"), "Please enter your username and password.", "bad"); return; }
   busy(btn, true, "Signing in…"); setMsg($("authMsg"), "");
-  post({ action: "login", username: $("siUser").value, password: $("siPassword").value })
-    .then(function (r) { saveToken(r.token); $("siPassword").value = ""; return loadHome(); })
-    .catch(function (err) { setMsg($("authMsg"), err.message, "bad"); })
+  post({ action: "login", username: $("siUser").value.trim(), password: $("siPassword").value })
+    .then(function (r) { saveToken(r.token); $("siPassword").value = ""; pwTyped = false; return loadHome(); })
+    .catch(function (err) {
+      $("siPassword").value = ""; pwTyped = false;
+      setMsg($("authMsg"), err.status === 401
+        ? err.message + " Please type your password again. (Tip: tick Show password to check it – your browser may fill in a different saved password.)"
+        : err.message, "bad");
+      $("siPassword").focus();
+    })
     .finally(function () { busy(btn, false); });
 });
 $("signUpForm").addEventListener("submit", function (e) {
@@ -100,7 +121,7 @@ $("signUpForm").addEventListener("submit", function (e) {
     .then(function () {
       const u = $("suUser").value;
       $("signUpForm").reset(); fillGrades($("suGrade"), $("suSection"));
-      showTab("signin"); $("siUser").value = u;
+      showTab("signin"); $("siUser").value = u; $("siPassword").value = ""; pwTyped = false;
       setMsg(m, "Account made! The school dentist must approve it first. You can sign in now to check.", "ok");
     })
     .catch(function (err) { setMsg(m, err.message, "bad"); })
@@ -114,9 +135,38 @@ $("signOutBtn").addEventListener("click", function () {
 });
 $("pendRefresh").addEventListener("click", function () { loadHome(); });
 
+// ---------- change password (also required after the dentist resets it) ----------
+function openPw(forced) {
+  ["pwCurrent", "pwNew", "pwNew2"].forEach(function (id) { $(id).value = ""; });
+  $("pwNote").textContent = forced ? "The school dentist reset your password. Please choose your own new password now." : "";
+  $("pwCurrentLabel").textContent = forced ? "Temporary password from the dentist" : "Current password";
+  $("pwCancel").hidden = !!forced;
+  setMsg($("pwMsg"), "");
+  $("pwDialog").hidden = false; $("pwCurrent").focus();
+}
+$("pwBtn").addEventListener("click", function () { openPw(false); });
+$("pwBtn2").addEventListener("click", function () { openPw(false); });
+$("pwCancel").addEventListener("click", function () { $("pwDialog").hidden = true; });
+$("pwForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  const m = $("pwMsg"), btn = $("pwSave");
+  if (!$("pwCurrent").value) return setMsg(m, "Please enter your current password.", "bad");
+  if ($("pwNew").value.length < 8) return setMsg(m, "The new password must have at least 8 characters.", "bad");
+  if ($("pwNew").value !== $("pwNew2").value) return setMsg(m, "The two new passwords are not the same.", "bad");
+  busy(btn, true, "Saving…");
+  post({ action: "password", current: $("pwCurrent").value, password: $("pwNew").value })
+    .then(function (r) {
+      saveToken(r.token); $("pwDialog").hidden = true;
+      return reload("Your new password is saved.");
+    })
+    .catch(function (err) { setMsg(m, err.message, "bad"); })
+    .finally(function () { busy(btn, false); });
+});
+
 // ---------- home ----------
 function loadHome() {
   showView("loading");
+  setMsg($("homeMsg"), "");
   return fetch(API, { headers: { Authorization: "Bearer " + token }, cache: "no-store" })
     .then(readJson)
     .then(function (d) { data = d; render(); })
@@ -132,6 +182,7 @@ function reload(msg) {
 }
 function render() {
   const t = data.teacher;
+  if (t.must_change && $("pwDialog").hidden) setTimeout(function () { openPw(true); }, 0);
   if (t.status !== "approved") {
     $("pendTitle").textContent = t.status === "rejected" ? "Your teacher account was not approved" : "Waiting for the school dentist";
     $("pendText").textContent = t.status === "rejected"
@@ -206,7 +257,11 @@ function closeMove() { $("moveDialog").hidden = true; moving = null; }
 $("mvGrade").addEventListener("change", function () { fillSections($("mvGrade"), $("mvSection")); });
 $("mvCancel").addEventListener("click", closeMove);
 $("moveDialog").addEventListener("click", function (e) { if (e.target === this) closeMove(); });
-document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("moveDialog").hidden) closeMove(); });
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Escape") return;
+  if (!$("moveDialog").hidden) closeMove();
+  if (!$("pwDialog").hidden && !$("pwCancel").hidden) $("pwDialog").hidden = true;
+});
 $("moveForm").addEventListener("submit", function (e) {
   e.preventDefault();
   if (!moving) return;

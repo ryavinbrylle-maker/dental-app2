@@ -6,6 +6,7 @@ function tchEl(id) { return document.getElementById(id); }
 
 function openTeachers() {
   show("teachers");
+  tchEl("tchTemp").hidden = true; tchEl("tchTemp").innerHTML = "";
   tchEl("tchError").textContent = "";
   loadTeachers();
 }
@@ -68,6 +69,7 @@ function teacherRow(t, pending) {
     });
     acts.appendChild(g); acts.appendChild(sec); acts.appendChild(save);
   }
+  btn("Reset password", "mini-btn", "teacher_reset", "Tap again to reset");
   if (!pending) btn("Remove", "mini-btn danger", "teacher_remove", "Tap again to remove");
   r.appendChild(acts);
   return r;
@@ -76,8 +78,15 @@ function teacherAction(body, b) {
   b.disabled = true;
   tchEl("tchError").textContent = "";
   return syApi(TEACHER_URL, { method: "POST", body: JSON.stringify(body) })
-    .then(function () {
-      showToast({ teacher_approve: "Teacher approved.", teacher_reject: "Teacher account rejected.",
+    .then(function (r) {
+      if (body.action === "teacher_reset") {
+        const box = tchEl("tchTemp"); box.innerHTML = "";
+        box.appendChild(document.createTextNode("Temporary password for @" + r.username + ": "));
+        box.appendChild(el("code", "", r.temp_password));
+        box.appendChild(el("div", "", "Give it to the teacher in person. They must choose a new password when they sign in. This is shown only once."));
+        box.hidden = false;
+      }
+      showToast({ teacher_reset: "Password reset.", teacher_approve: "Teacher approved.", teacher_reject: "Teacher account rejected.",
                   teacher_remove: "Teacher account removed.", teacher_section: "Section changed." }[body.action]);
       return loadTeachers();
     })
