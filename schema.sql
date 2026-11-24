@@ -396,3 +396,28 @@ ALTER TABLE school_years         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE school_year_archive  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sync_ops             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rate_limits          ENABLE ROW LEVEL SECURITY;
+
+-- ===== Teacher approval (Nov 2026) =====
+-- Teachers (section advisers) sign up on Teacher.html; the dentist approves them. A teacher then
+-- approves the students who register in their section before those students can open My Dental Record.
+-- The app also creates this by itself on first use. Safe to run again.
+CREATE TABLE IF NOT EXISTS teachers (
+  id                  SERIAL PRIMARY KEY,
+  full_name           TEXT NOT NULL,
+  username            TEXT NOT NULL UNIQUE,
+  password_hash       TEXT NOT NULL,
+  grade               TEXT NOT NULL,
+  section             TEXT NOT NULL,
+  status              TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'removed')),
+  failed_attempts     INTEGER NOT NULL DEFAULT 0,
+  locked_until        TIMESTAMPTZ,
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  decided_at          TIMESTAMPTZ,
+  password_changed_at TIMESTAMPTZ DEFAULT NOW(),
+  last_login          TIMESTAMPTZ
+);
+ALTER TABLE teachers ENABLE ROW LEVEL SECURITY;
+-- NULL = registered before this rule (counts as approved); 'pending' | 'approved' | 'rejected'
+ALTER TABLE students ADD COLUMN IF NOT EXISTS teacher_status TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS teacher_id INTEGER;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS teacher_decided_at TIMESTAMPTZ;

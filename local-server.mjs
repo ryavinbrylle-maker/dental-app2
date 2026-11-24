@@ -111,7 +111,7 @@ http.createServer(async (req, res) => {
     res.writeHead(404, SECURITY); return res.end("Not found");
   }
   const h = { ...SECURITY, "Content-Type": TYPES[path.extname(file).toLowerCase()] || "application/octet-stream", "Cache-Control": "no-cache" };
-  if (rel === "Students.html") h["X-Robots-Tag"] = "noindex, nofollow";
+  if (rel === "Students.html" || rel === "Teacher.html" || rel === "MyRecords.html") h["X-Robots-Tag"] = "noindex, nofollow";
   if (rel === "QRCode.html") h["Content-Security-Policy"] = SECURITY["Content-Security-Policy"].replace("script-src 'self'", "script-src 'self' https://cdnjs.cloudflare.com");
   res.writeHead(200, h);
   fs.createReadStream(file).pipe(res);

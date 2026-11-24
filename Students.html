@@ -492,6 +492,19 @@
       font-weight: 700; font-size: 15px; }
     .nav-item:hover { background: var(--soft); color: var(--text); }
     .nav-item.active { background: var(--primary-soft); color: var(--primary); }
+    .nav-item { position: relative; }
+    .nav-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #c4501a; color: #fff;
+      font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+    .tch-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid #e3e8eb; }
+    .tch-row:first-child { border-top: 0; }
+    .tch-row .who { flex: 1; min-width: 180px; }
+    .tch-row .who b { display: block; }
+    .tch-row .who span { color: var(--muted); font-size: 14px; }
+    .tch-row .acts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .tch-row select { height: 32px; border-radius: 8px; border: 1px solid #ccc; padding: 0 6px; font-family: inherit; }
+    .tch-tag { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #eef1f3; color: #555; margin-left: 6px; }
+    .tch-tag.ok { background: #e0f0ed; color: var(--teal); }
+    .tch-tag.bad { background: #fdecea; color: #b42318; }
     .hdr-logout { height: 36px; padding: 0 14px; background: transparent; color: var(--muted); border: 1px solid var(--border);
       border-radius: var(--radius-sm); font-size: 14px; }
     .hdr-logout:hover { background: var(--soft); color: var(--text); }
@@ -774,12 +787,13 @@
       .hdr-logout { width: var(--tap); height: var(--tap); padding: 0; }
       .sync-pill { min-height: 36px; padding: 0 10px; }
       body.signed-in .app-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; margin: 0; width: auto; order: 0;
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; overflow: visible;
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; overflow: visible;
         background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -4px 16px rgba(15,42,51,.08);
         padding: 4px 6px calc(4px + env(safe-area-inset-bottom)); }
       body.signed-in .nav-item { flex-direction: column; gap: 2px; min-height: 56px; padding: 4px 2px; font-size: 12px;
         border-radius: 12px; background: transparent; }
       body.signed-in .nav-item .ic { width: 22px; height: 22px; }
+      body.signed-in .nav-badge { position: absolute; top: 3px; left: calc(50% + 6px); }
       body.signed-in .nav-item.active { color: var(--primary); background: var(--primary-soft); }
       body.signed-in main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
       /* the examination has its own action bar – hide the tabs there */
@@ -941,6 +955,7 @@
       <button type="button" class="nav-item" id="navStudents" data-nav="students"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="10" cy="8" r="3.5"/><path d="M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.6a3.5 3.5 0 0 1 0 6.8"/></svg><span>Students</span></button>
       <button type="button" class="nav-item" id="openApptBtn" data-nav="appointments"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Appointments</span></button>
       <button type="button" class="nav-item" id="openSyBtn" data-nav="schoolyears"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/></svg><span>School Years</span></button>
+      <button type="button" class="nav-item" id="openTeachersBtn" data-nav="teachers"><svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/><path d="M15.5 17.5l1.5 1.5 3-3"/></svg><span>Teachers</span><span class="nav-badge" id="tchBadge" hidden></span></button>
     </nav>
     <div class="hdr-right">
       <span class="sy-badge" id="syBadge" title="Active school year"></span>
@@ -1282,6 +1297,31 @@
       </div>
     </section>
 
+    <!-- ===== Teachers (section advisers who approve their students' online accounts) ===== -->
+    <section id="teachers" class="view">
+      <div class="bar">
+        <button type="button" class="back" id="tchBack" aria-label="Back">&lsaquo;</button>
+        <div>
+          <h2>Teachers</h2>
+          <div class="sub">Teachers approve the students who register in their section. You approve the teachers.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h3>Waiting for your approval</h3>
+          <button type="button" class="mini-btn" id="tchRefresh">Refresh</button>
+        </div>
+        <div id="tchPending"></div>
+      </div>
+      <div class="card">
+        <h3>Teacher accounts</h3>
+        <p class="muted" style="margin-top:0">Teacher sign-up page: <a id="tchLink" href="Teacher.html" target="_blank" rel="noopener">Teacher.html</a> – share it with the advisers.
+          Students in a section without an approved teacher keep waiting.</p>
+        <div id="tchList"></div>
+        <p class="error" id="tchError"></p>
+      </div>
+    </section>
+
     <!-- ===== Dental examination (Record Tooth-Map Exam) ===== -->
     <section id="visitForm" class="view">
       <div class="bar">
@@ -1370,6 +1410,7 @@
   <script src="Appointments.js"></script>
   <script src="DentalRecordPDF.js"></script>
   <script src="SchoolYearDentalRecords.js"></script>
+  <script src="Teachers.js"></script>
   <script src="sw-register.js"></script>
 </body>
 </html>

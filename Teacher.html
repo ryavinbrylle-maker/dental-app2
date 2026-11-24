@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Teacher – School Dental Clinic</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0e7490; --primary-hover: #155e75; --primary-soft: #e6f6f9; --primary-line: #a5dbe6;
+      --success: #047857; --success-soft: #e7f6ef; --danger: #b42318; --danger-soft: #fdecea;
+      --warning: #92400e; --warning-soft: #fff4e0;
+      --bg: #f3f7f9; --surface: #fff; --soft: #f1f5f7; --border: #dce5ea; --border-strong: #c3d0d7;
+      --text: #0f2a33; --muted: #50646c; --placeholder: #7d8f96;
+      --radius: 14px; --radius-sm: 10px;
+      --shadow: 0 1px 2px rgba(15,42,51,.05), 0 2px 6px rgba(15,42,51,.05);
+      --focus: 0 0 0 3px rgba(14,116,144,.38);
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; font-family: "Atkinson Hyperlegible", "DM Sans", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      font-size: 16px; line-height: 1.5; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+    button, input { font-family: inherit; }
+    .ic { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    :focus-visible { outline: none; box-shadow: var(--focus); }
+
+    header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px;
+      background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow); padding: 10px 20px; min-height: 64px; }
+    header img { width: 42px; height: 42px; flex-shrink: 0; }
+    header h1 { margin: 0; font-size: 18px; line-height: 1.2; }
+    header p { margin: 0; color: var(--muted); font-size: 13px; }
+    header .spacer { flex: 1; }
+    main { max-width: 1000px; margin: 0 auto; padding: 22px 18px 60px; }
+    @media (max-width: 600px) { header { padding: 8px 12px; } main { padding: 14px 12px 48px; } }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 22px; margin-bottom: 16px; }
+    @media (max-width: 600px) { .card { padding: 16px; border-radius: 12px; } }
+    .card h2 { margin: 0 0 4px; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+    .card h2 .ic { color: var(--primary); }
+    .card h3 { margin: 0 0 6px; font-size: 17px; }
+    .muted { color: var(--muted); }
+    .small { font-size: 14px; }
+
+    button, .btn { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 0 18px; border-radius: var(--radius-sm); border: 0; background: var(--primary); color: #fff;
+      font-weight: 700; font-size: 15px; cursor: pointer; text-decoration: none; transition: background-color .15s, transform .1s; }
+    button:hover, .btn:hover { background: var(--primary-hover); }
+    button:active:not(:disabled) { transform: scale(.98); }
+    button:disabled { opacity: .6; cursor: progress; }
+    button.secondary, .btn.secondary { background: var(--surface); color: var(--primary); border: 1.5px solid var(--border-strong); }
+    button.secondary:hover, .btn.secondary:hover { background: var(--primary-soft); border-color: var(--primary); }
+    button.ghost { background: transparent; color: var(--muted); border: 1.5px solid var(--border); min-height: 40px; padding: 0 14px; }
+    button.ghost:hover { background: var(--soft); color: var(--text); }
+
+    /* ----- sign in ----- */
+    .auth { max-width: 460px; margin: 10px auto; }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 4px; margin: 6px 0 18px; background: var(--soft);
+      border: 1px solid var(--border); border-radius: 999px; }
+    .tabs button { min-height: 40px; border-radius: 999px; background: transparent; color: var(--muted); font-size: 14px; padding: 0 10px; }
+    .tabs button.on { background: var(--surface); color: var(--primary); box-shadow: 0 1px 3px rgba(15,42,51,.15); }
+    label { display: block; font-weight: 700; font-size: 15px; margin: 0 0 6px; }
+    .field { margin-bottom: 16px; }
+    input[type=text], input[type=date], input[type=password] { width: 100%; height: 48px; padding: 0 14px; font-size: 16px; color: var(--text);
+      border: 1.5px solid var(--border-strong); border-radius: var(--radius-sm); background: #fff; outline: none; }
+    input:focus { border-color: var(--primary); box-shadow: var(--focus); }
+    input::placeholder { color: var(--placeholder); }
+    #setupCode { text-transform: uppercase; letter-spacing: .12em; font-weight: 700; }
+    .check { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; min-height: 44px; cursor: pointer; }
+    .check input { width: 20px; height: 20px; accent-color: var(--primary); }
+    .full { width: 100%; min-height: 50px; font-size: 16px; }
+    .msg { margin: 14px 0 0; padding: 12px 14px; border-radius: var(--radius-sm); font-weight: 700; }
+    .msg:empty { display: none; }
+    .msg.bad { background: var(--danger-soft); color: var(--danger); }
+    .msg.ok { background: var(--success-soft); color: var(--success); }
+    .msg.info { background: var(--primary-soft); color: var(--primary-hover); }
+    .auth-foot { text-align: center; margin: 16px 0 0; font-size: 15px; }
+    .auth-foot a { color: var(--primary); font-weight: 700; }
+
+    /* ----- home ----- */
+    .banner { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 12px; margin-bottom: 16px; font-size: 15px; }
+    .banner .ic { margin-top: 2px; }
+    .banner.ok { background: var(--success-soft); color: var(--success); border: 1px solid #b6e2cc; }
+    .banner.warn { background: var(--warning-soft); color: var(--warning); border: 1px solid #f3d9a8; }
+    .banner b { display: block; }
+    .wait { text-align: center; }
+    .wait h2 { justify-content: center; margin-top: 8px; }
+    .wait-ic { width: 64px; height: 64px; margin: 4px auto 0; border-radius: 50%; display: grid; place-items: center;
+      background: var(--warning-soft); color: var(--warning); }
+    .wait-ic.bad { background: var(--danger-soft); color: var(--danger); }
+    .wait-ic .ic { width: 30px; height: 30px; }
+    .profile { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--primary-soft); color: var(--primary);
+      display: grid; place-items: center; font-weight: 700; font-size: 22px; flex-shrink: 0; }
+    .profile .who { flex: 1; min-width: 200px; }
+    .profile .who h2 { margin: 0; font-size: 22px; }
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .pill { background: var(--soft); border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+    .pill b { font-weight: 700; }
+    .profile .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    @media (max-width: 600px) { .profile .actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; } .profile .actions button { width: 100%; padding: 0 8px; white-space: nowrap; font-size: 14px; }
+      .avatar { display: none; } .profile .who { min-width: 0; } }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
+    .stat span { display: block; font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+    .stat b { display: block; font-size: 20px; margin-top: 2px; }
+    .stat small { color: var(--muted); font-size: 13px; }
+    @media (max-width: 760px) { .stats { grid-template-columns: 1fr 1fr; } }
+    .exam-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .exam-head .muted { font-size: 14px; }
+    .dent-label { font-weight: 700; font-size: 14px; margin: 8px 0 6px; color: var(--muted); }
+    .findings { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 14px 0 0; font-size: 15px; }
+    .findings dt { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .findings dd { margin: 0; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .dot.sound { background: #eaf7ee; border: 2px solid #43b97f; }
+    .notes { margin-top: 14px; padding: 12px 14px; background: var(--soft); border-radius: 10px; white-space: pre-wrap; }
+    .notes b { display: block; margin-bottom: 2px; }
+    .year-head { font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted);
+      margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .year-head:first-child { margin-top: 4px; }
+    details.exam { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; background: var(--surface); }
+    details.exam > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+      gap: 10px; padding: 12px 16px; min-height: 52px; border-radius: 12px; }
+    details.exam > summary::-webkit-details-marker { display: none; }
+    details.exam > summary:hover { background: var(--soft); }
+    details.exam > summary .chev { transition: transform .15s; color: var(--muted); }
+    details.exam[open] > summary .chev { transform: rotate(180deg); }
+    details.exam[open] > summary { border-bottom: 1px solid var(--border); border-radius: 12px 12px 0 0; }
+    details.exam .body { padding: 14px 16px 16px; }
+    .tag { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .tag.ok { background: var(--success-soft); color: var(--success); }
+    .tag.bad { background: var(--danger-soft); color: var(--danger); }
+    .tag.wait { background: var(--primary-soft); color: var(--primary-hover); }
+    .tag.warn { background: var(--warning-soft); color: var(--warning); }
+    .appt { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .appt:last-child { border-bottom: 0; }
+    .appt .when { font-weight: 700; }
+    .empty { text-align: center; padding: 22px 12px; color: var(--muted); }
+    .empty .ic { width: 34px; height: 34px; color: var(--primary-line); display: block; margin: 0 auto 6px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 13.5px; color: var(--muted); }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    footer { text-align: center; color: var(--muted); font-size: 13px; margin: 26px 0 0; }
+    .loading { text-align: center; padding: 40px 0; color: var(--muted); }
+
+    /* ----- tooth map (same look as the dentist's chart) ----- */
+    .teeth-scroll { overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+    .teeth-row { display: flex; gap: 5px; margin-bottom: 5px; width: max-content; }
+    .tooth { position: relative; width: 46px; height: 50px; border-radius: 10px; border: 2px solid transparent; background: #e5e7eb;
+      color: #1f2a2e; font-weight: 700; font-size: 16px; padding: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; line-height: 1.1; cursor: default; min-height: 0; }
+    .tooth:hover { background: #e5e7eb; }
+    .tooth:active { transform: none; }
+    .tooth small { font-size: 9.5px; font-weight: 700; }
+    .tooth.gap { margin-left: 10px; }
+    .tooth.s-Sound { background: #eaf7ee; border-color: #43b97f; color: #1d6b4f; }
+    .tooth.s-Decayed { background: #e5483f; color: #fff; }
+    .tooth.s-Missing { background: #6b7280; color: #fff; }
+    .tooth.s-Filled { background: #4a8af4; color: #fff; }
+    .tooth.s-Fractured { background: #f07c12; color: #fff; }
+    .tooth.s-Sealant { background: #43b97f; color: #10331f; }
+    .tooth.s-RootFragment { background: #8b5a2b; color: #fff; }
+    .tooth.s-Impacted { background: #7c3aed; color: #fff; }
+    .tooth.s-Crowned { background: #c9a227; color: #2b2100; }
+    .tooth.s-Unerupted { background: #e2e8f0; color: #334155; border: 2px dashed #64748b; }
+    .tooth.s-TemporaryFilled { background: #a5c8ff; color: #0b3a80; }
+    .tooth.s-Compositefilled { background: #0ea5e9; color: #fff; }
+    .tooth.s-Amalgamfilled { background: #334155; color: #fff; }
+    .tooth.s-Indicatedforextraction { background: #9f1239; color: #fff; }
+    .tooth.s-Carioustooth { background: #fb7185; color: #4c0519; }
+    .tooth.s-Erupting { background: #fde68a; color: #78350f; border: 2px dashed #b45309; }
+    .tooth.multi { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.55); }
+    .tooth .count-dot { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; border-radius: 9px;
+      background: #111; color: #fff; font-size: 11px; line-height: 18px; text-shadow: none; }
+    .quad-label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin: 6px 0 2px; }
+    @media (max-width: 700px) {
+      .teeth-row { width: 100%; gap: 4px; }
+      .tooth { flex: 1 1 0; width: auto; min-width: 0; height: 48px; font-size: 14px; }
+    }
+
+    .modal { position: fixed; inset: 0; z-index: 50; background: rgba(15,42,51,.45); display: grid; place-items: center; padding: 16px; }
+    .modal[hidden] { display: none; }
+    .modal .card { width: 100%; max-width: 420px; margin: 0; }
+    .row-end { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+  
+    /* ----- teacher ----- */
+    select { width: 100%; height: 48px; padding: 0 12px; font-size: 16px; color: var(--text); font-family: inherit;
+      border: 1.5px solid var(--border-strong); border-radius: var(--radius-sm); background: #fff; outline: none; }
+    select:focus { border-color: var(--primary); box-shadow: var(--focus); }
+    input[type=number] { width: 100%; height: 48px; padding: 0 14px; font-size: 16px; border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm); font-family: inherit; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 480px) { .two { grid-template-columns: 1fr; } }
+    .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    .count { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px;
+      background: var(--warning-soft); color: var(--warning); font-size: 14px; font-weight: 700; }
+    .count.zero { background: var(--soft); color: var(--muted); }
+    .srow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .srow:first-child { border-top: 0; }
+    .srow .who { flex: 1; min-width: 180px; }
+    .srow .who b { display: block; font-size: 16px; }
+    .srow .who span { color: var(--muted); font-size: 14px; }
+    .srow .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+    .srow .acts button { min-height: 40px; padding: 0 14px; font-size: 14px; }
+    button.danger { background: var(--surface); color: var(--danger); border: 1.5px solid #f1c0ba; }
+    button.danger:hover { background: var(--danger-soft); }
+    .tag { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-left: 6px; }
+    .tag.bad { background: var(--danger-soft); color: var(--danger); }
+    .empty { color: var(--muted); padding: 10px 0; }
+    .search { margin: 4px 0 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="cvif-logo.webp" alt="" width="42" height="42">
+    <div>
+      <h1>Teacher</h1>
+      <p>School Dental Clinic · approve your students</p>
+    </div>
+    <span class="spacer"></span>
+    <button type="button" class="ghost" id="signOutBtn" hidden>
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10"/></svg>
+      <span>Sign out</span>
+    </button>
+  </header>
+
+  <main>
+    <!-- ===== sign in / sign up ===== -->
+    <section id="authView" hidden>
+      <div class="card auth">
+        <h2>Teacher account</h2>
+        <p class="muted small">Approve the students who register in your section, and move a student who chose the wrong section.</p>
+        <div class="tabs" role="tablist">
+          <button type="button" class="on" id="tabSignIn" role="tab" aria-selected="true">Sign in</button>
+          <button type="button" id="tabSignUp" role="tab" aria-selected="false">Make an account</button>
+        </div>
+
+        <form id="signInForm" novalidate>
+          <div class="field">
+            <label for="siUser">Username</label>
+            <input type="text" id="siUser" autocomplete="username" autocapitalize="none" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="siPassword">Password</label>
+            <input type="password" id="siPassword" autocomplete="current-password">
+          </div>
+          <label class="check"><input type="checkbox" class="showPw" data-for="siPassword"> Show password</label>
+          <button type="submit" class="full" id="signInBtn">Sign in</button>
+        </form>
+
+        <form id="signUpForm" novalidate hidden>
+          <div class="field">
+            <label for="suName">Full name</label>
+            <input type="text" id="suName" autocomplete="name" placeholder="e.g. Maria Santos">
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="suGrade">Grade you handle</label>
+              <select id="suGrade"></select>
+            </div>
+            <div class="field">
+              <label for="suSection">Section</label>
+              <select id="suSection"></select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="suUser">Username</label>
+            <input type="text" id="suUser" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. msantos">
+          </div>
+          <div class="field">
+            <label for="suPassword">Password</label>
+            <input type="password" id="suPassword" autocomplete="new-password" placeholder="At least 8 characters">
+          </div>
+          <div class="field">
+            <label for="suPassword2">Type it again</label>
+            <input type="password" id="suPassword2" autocomplete="new-password">
+          </div>
+          <div class="hp" aria-hidden="true"><label for="suWebsite">Website</label><input type="text" id="suWebsite" tabindex="-1" autocomplete="off"></div>
+          <label class="check"><input type="checkbox" class="showPw" data-for="suPassword,suPassword2"> Show password</label>
+          <button type="submit" class="full" id="signUpBtn">Make my teacher account</button>
+          <p class="muted small" style="margin:12px 0 0;text-align:center">The school dentist approves new teacher accounts before you can use them.</p>
+        </form>
+
+        <p class="msg" id="authMsg" role="alert"></p>
+        <p class="auth-foot">Student? <a href="MyRecords.html">My dental record</a></p>
+      </div>
+    </section>
+
+    <!-- ===== waiting for the dentist ===== -->
+    <section id="pendingView" hidden>
+      <div class="card auth" style="text-align:center">
+        <h2 id="pendTitle" style="justify-content:center"></h2>
+        <p id="pendText"></p>
+        <div class="row-end" style="justify-content:center"><button type="button" class="secondary" id="pendRefresh">Check again</button></div>
+      </div>
+    </section>
+
+    <!-- ===== home ===== -->
+    <section id="homeView" hidden>
+      <div class="card">
+        <h2 id="tName"></h2>
+        <div class="pills" id="tPills"></div>
+        <p class="muted small" style="margin:10px 0 0">You only see each student's name, code and birthdate – never their dental records.</p>
+      </div>
+
+      <div class="card">
+        <h2>Waiting for you <span class="count" id="pendCount">0</span></h2>
+        <p class="muted small" style="margin:0 0 6px">Students who registered in your section. Approve them if they are in your class.
+          If one chose the wrong section, tap <b>Move</b>.</p>
+        <div id="pendList"></div>
+      </div>
+
+      <div class="card">
+        <h2>My students <span class="count zero" id="okCount">0</span></h2>
+        <input type="text" class="search" id="okSearch" placeholder="Search by name or code" aria-label="Search students">
+        <div id="okList"></div>
+      </div>
+
+      <div class="card" id="rejCard" hidden>
+        <h2>Not in my class <span class="count zero" id="rejCount">0</span></h2>
+        <p class="muted small" style="margin:0 0 6px">You said these students are not yours. Approve or move them if that was a mistake.</p>
+        <div id="rejList"></div>
+      </div>
+      <p class="msg" id="homeMsg" role="status"></p>
+      <footer>Remember to sign out on shared phones and computers.</footer>
+    </section>
+
+    <div class="loading" id="loading" hidden>Loading…</div>
+  </main>
+
+  <!-- move a student -->
+  <div class="modal" id="moveDialog" hidden role="dialog" aria-modal="true" aria-labelledby="mvTitle">
+    <form class="card" id="moveForm" novalidate>
+      <h2 id="mvTitle">Move student</h2>
+      <p class="muted small" id="mvWho" style="margin:0 0 12px"></p>
+      <div class="two">
+        <div class="field">
+          <label for="mvGrade">Grade</label>
+          <select id="mvGrade"></select>
+        </div>
+        <div class="field">
+          <label for="mvSection">Section</label>
+          <select id="mvSection"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="mvNumber">Student number in the new section <span class="muted small">(optional)</span></label>
+        <input type="number" id="mvNumber" min="1" max="999" inputmode="numeric" placeholder="Leave empty for the next free number">
+      </div>
+      <p class="muted small" style="margin:0">The new section's teacher will then approve the student.</p>
+      <p class="msg" id="mvMsg" role="alert"></p>
+      <div class="row-end">
+        <button type="button" class="secondary" id="mvCancel">Cancel</button>
+        <button type="submit" id="mvSave">Move</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="SchoolClasses.js"></script>
+  <script src="Teacher.js"></script>
+</body>
+</html>

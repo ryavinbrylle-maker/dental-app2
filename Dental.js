@@ -41,7 +41,8 @@ const views = {
   record: document.getElementById("record"),
   visitForm: document.getElementById("visitForm"),
   appointments: document.getElementById("appointments"),
-  schoolYears: document.getElementById("schoolYears")
+  schoolYears: document.getElementById("schoolYears"),
+  teachers: document.getElementById("teachers")
 };
 // keepScroll: return to a page without jumping to the top (the page restores its own position)
 function show(name, keepScroll) {
@@ -50,6 +51,7 @@ function show(name, keepScroll) {
   // highlight the current page in the main navigation
   const area = name === "appointments" ? "appointments"
              : name === "schoolYears" ? "schoolyears"
+             : name === "teachers" ? "teachers"
              : name === "visitForm" ? (visitReturnView === "appointments" ? "appointments" : "students")
              : name === "record" ? (recordReturnView === "appointments" ? "appointments" : "students")
              : "students";

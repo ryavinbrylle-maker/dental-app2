@@ -314,3 +314,98 @@ Only made-up test students were used.
 - Tooth conditions are stored per exam as JSON (not a separate table). This is enough for history, compare and PDF; a separate table would only be needed for school-wide statistics per tooth.
 - Exam history is loaded per student when the record opens (not all at once), and lists are paged; very large schools may later want server-side paging of the roster.
 - This is not a security certification: keep the dentist password strong and private.
+
+---
+
+## 13. Update (November 2026): Quick notes, new conditions, redesign v2
+
+- **Dentist quick notes:** Presence of Calculus, With Orthodontic Appliance, Upper, Lower (added to the notes; tap again to remove).
+- **New tooth conditions:** Composite filled (CF), Amalgam filled (AF), Indicated for extraction (X), Carious tooth (C), Erupting (E). DMFT: Carious and Indicated for extraction count as D; Composite and Amalgam as F; Erupting not counted.
+- **Compare:** the tooth-by-tooth list is hidden behind a button (choice remembered per device).
+- **Redesign v2** (ui-ux-pro-max: Minimalism/Swiss style, calm clinical teal, Atkinson Hyperlegible font):
+  - SVG icons instead of emoji; one consistent button family; 44px+ touch targets; visible focus rings; reduced-motion support.
+  - Phones: bottom tab bar (Students / Appointments / School Years); save bar fixed at the bottom of the examination.
+  - Examination: Permanent/Primary switch above the tooth map; selected-tooth panel right under the map; conditions grouped (Common, Restorations, Problems, Eruption) and swipeable on phones.
+  - Student record: "Add examination" is the main button at the top; editing name/class/code is folded away; empty medical box is one line.
+  - Registration page: same colours and font, larger tick boxes.
+- Tests: all suites pass (core 67, dashboard 22, redesign 18, features 28, conditions 25, quick notes 22, compare 12, tooth map 17, PDF 8, registration 15, absent 24, scroll 8).
+
+---
+
+## 14. Update (November 2026): My Dental Record – students see their records online
+
+- **Flow:** the registration form now asks for a birthdate and a password; after Confirm the student goes straight to their home screen (MyRecords.html). Later they sign in with **name + birthdate + password**.
+- **Home screen:** profile (class, code, school year, age), stats, latest check-up (tooth chart, findings, DMFT, tooth notes, dentist's notes), all check-ups grouped by school year, appointments, Download PDF, change password, sign out.
+- **Privacy / security:**
+  - passwords hashed with scrypt; 5 wrong tries lock the account for 15 minutes; generic error messages;
+  - student sessions use a different signing key from the dentist (a student token cannot open dentist pages); changing the password ends old sessions; session ends when the tab closes;
+  - a returning student who makes a password on the public form sees only this year until the dentist confirms it's them (record page → "Online dental record" → Confirm);
+  - students who registered before this feature (or forgot their password) get a one-time **set-up code** from the dentist (valid 14 days, single use, birthdate must match).
+- **Dentist:** new "Online dental record" card on each student record: status (Not set up / Code given / Waiting for you / Active), Create set-up code, Confirm.
+- **Database:** new table `student_accounts` (added to Neon on 22 Nov 2026; also in schema.sql). Linking/unlinking returning students moves the account with the registration.
+- **Code:** shared tooth-chart code moved to `DentalCore.js` (used by the dentist pages and MyRecords). New: `MyRecords.html`, `MyRecords.js`, `api/portal.js`, `api/_student.js`. Changed: `StudentReg.html/js`, `api/register.js`, `api/identity.js`, `Students.html`, `Dental.js`, `sw.js`, `vercel.json`, `schema.sql`.
+- **Tests:** portal suite 57/57 (desktop + phone: register → home, exams/notes/appointments shown, PDF, sign out/in, wrong password + lockout, change password, returning-student confirmation, set-up code incl. wrong birthdate + single use, next school year re-registration); all earlier suites still pass.
+
+---
+
+## 15. Update (November 2026): Pre-launch security checklist (20 items)
+
+| # | Item | Status in this app |
+|---|---|---|
+| 1 | Hide API keys | No keys in the pages or the code; the database URL and dentist login live only in Vercel environment variables. `.env.local` (local runs) is git-ignored. |
+| 2 | Purge Git secrets | All 54 commits of the GitHub repository scanned for database URLs, passwords, tokens and private keys: none found (only the example text in Start-Local.bat). |
+| 3 | Public DB key | Not applicable: the browser never talks to the database; only the server functions do. |
+| 4 | Row-level security | RLS enabled on every table (schema.sql). The app's own owner role is unaffected; any other role or Neon's Data API sees nothing. |
+| 5 | Encrypt sensitive data | HTTPS in transit, Neon encrypts at rest (AES-256), passwords scrypt-hashed, set-up codes and network addresses stored only as hashes. |
+| 6 | Server-side auth | Every dentist endpoint checks a signed token; every student endpoint checks the student's own token. |
+| 7 | Lock record access | Students only get their own identity's records; earlier years only after dentist confirmation. |
+| 8 | Block field tampering | Servers accept only known fields; who saved an exam is set by the server; grade/section checked against the school's list (`api/_classes.js` reads SchoolClasses.js). |
+| 9 | Secure session cookies | Sign-in now also sets an **HttpOnly, Secure, SameSite=Strict** cookie; the server only accepts a request when the token AND the cookie match, so a copied token is useless. Logging out clears it. |
+| 10 | Hash passwords | scrypt with a random salt (students); dentist password compared in constant time. |
+| 11 | Rate-limit login | Dentist login 10 tries / 15 min per network (60 total); student sign-in 60 / 15 min per network + 5 wrong passwords lock the account; set-up codes 20 / 15 min; table `rate_limits` creates itself. |
+| 12 | Bot protection | Registration: hidden honeypot field, minimum fill time, 150 registrations per network per hour. |
+| 13 | Parameterised queries | All SQL uses tagged templates; no string-built SQL. |
+| 14 | Validate all input | Dates, codes, lengths, conditions, tooth numbers, grade/section, passwords validated on the server. |
+| 15 | Escape user content | All user text shown with textContent; CSV export neutralises spreadsheet formulas (`=`, `+`, `-`, `@`). |
+| 16 | Restrict file uploads | The app has no file uploads. |
+| 17 | Trim API responses | Public/student responses return only what the page needs (registration no longer returns the internal id). |
+| 18 | Security headers | Content-Security-Policy (no inline scripts, no eval, no framing), HSTS, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, COOP/CORP. Inline service-worker script moved to `sw-register.js`. |
+| 19 | Force HTTPS | Vercel redirects HTTP → HTTPS; HSTS (2 years) + `upgrade-insecure-requests`. |
+| 20 | Scan dependencies | One runtime dependency (`@neondatabase/serverless` ^1.0.0, latest 1.x installed on every Vercel build). `npm audit` could not be run from the test environment (registry blocked); turn on GitHub Dependabot alerts. |
+
+Tests: new security suites 15/15 and 34/34 (with the CSP switched on), plus every earlier suite passes (core 67, portal 57, registration 15, features 28, redesign 18, dashboard 22, conditions 13+25, tooth map 17, PDF 8, absent 24, scroll 8, quick notes 22, compare 12, intro 22).
+
+---
+
+## 16. Update (November 2026): Attack test of the app (own app, local copy)
+
+An automated attack suite (`attack_test.py`, 39 checks) was run against a local copy with the security settings on.
+
+**Held up:** forged/foreign tokens on every dentist endpoint; a student reading or changing other students; students using dentist actions; SQL injection in sign-in, registration and ids; stored XSS through a student name (shown as text only); extra fields in registration (no mass assignment); oversized names (cut to 120 chars); 5,000 fake teeth; wrong data types; broken JSON; `__proto__`; error messages (no internal details); cross-site requests with only the cookie; page scripts reading the session cookie.
+
+**Found and fixed:**
+| Severity | Weak point | Fix |
+|---|---|---|
+| **High** (local server only) | `local-server.mjs` served `.env.local` (database password) to anyone on the same Wi-Fi via `/x/..%2f.env.local` | Only plain file names of page/script/image types in the app folder are served; dotfiles, `.sql`, `.mjs`, sub-folders and `..` never are |
+| **Medium** (local server only) | One malformed web address (`/%E0%A4%A`) crashed the local server | Bad addresses get "400 Bad request"; the server keeps running |
+| Medium | Anyone could lock the dentist out of logging in for 15 min with 60 wrong passwords (global cap) | **Trusted device:** after a successful login the browser gets a signed HttpOnly cookie (90 days); the global cap only applies to browsers that never logged in. Per-network limit stays |
+| Medium | Per-network limits trusted the `X-Forwarded-For` header, which a visitor can fake outside Vercel | On Vercel the platform's own header is used; elsewhere only the real connection address |
+| Low | Student sign-in said "ask the dentist for a set-up code" only when the student existed (reveals who is registered) | Same message for every failure; the set-up code hint is now always shown on the page |
+| Low | A classmate who knows a name + birthdate could lock a student out | Trusted device for students too: their own phone can still sign in while others are locked out |
+| Low | Project files (`schema.sql`, this report, `local-server.mjs`, `Start-Local.bat`, `package.json`) were downloadable from the website | `.vercelignore` + redirects keep them off the website |
+| Info | Password comparison could reveal the password's length by timing | Both sides hashed before a constant-time compare |
+
+**Remaining (accepted):** a student with a known name + birthdate can be locked out on *other* devices for 15 minutes; the dentist account is shared (one password) – use a long, unique password.
+
+## 17. Update (November 2026): Teacher accounts and student approval
+
+**What changed**
+- **Teacher accounts (Teacher.html).** Each section adviser makes their own account: name, the grade and section they handle, a username and a password of at least 8 characters. The school dentist approves new teacher accounts on the new **Teachers** page (4th menu item; a red number shows how many are waiting). The dentist can also change a teacher's section or remove an account.
+- **Students wait for their teacher.** A student who registers now sees "Waiting for your teacher (Grade – Section)" instead of their record. The page checks again by itself every minute. When the section's teacher approves them, My Dental Record opens. If the teacher taps **Not my student**, the student is told to talk to the teacher or the dentist; a teacher can still approve later if that was a mistake. If a section has no teacher yet, students keep waiting and are asked to remind their teacher to sign up. Only teachers approve students.
+- **Moving a student.** A teacher can **Move** a student who chose the wrong section. The student gets the next free number in the new section (or a number the teacher types, which must be free). Their waiting appointments move with them, and they then wait for the new section's teacher to approve them.
+- **Privacy.** Teachers only see each student's name, code, birthdate and registration date. They never see dental or medical data. A teacher can only act on students in their own section in the active school year.
+- **Older registrations.** Students who registered before this update are counted as already approved, so nobody loses access.
+
+**Security.** Teacher sessions use their own signed token plus an HttpOnly cookie (`tsess`), separate from the dentist's and the students' sessions; a teacher token can't open dentist or student pages. Five wrong passwords lock a teacher account for 15 minutes, and sign-in and sign-up are rate-limited. Sign-up uses the same bot checks as registration, and the new table has row-level security on.
+
+**Technical.** The teacher API is served through `/api/portal?as=teacher`, because Vercel's free plan allows 12 functions and the app already uses 12. The `teachers` table and 3 new `students` columns (`teacher_status`, `teacher_id`, `teacher_decided_at`) are created automatically the first time they're needed; they're also in `schema.sql`. The new test suite `teacher_test.py` passes 86/86, and every earlier suite still passes.

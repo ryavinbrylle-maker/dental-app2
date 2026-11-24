@@ -63,8 +63,9 @@ function busy(btn, on, label) {
 function showView(name) {
   $("authView").hidden = name !== "auth";
   $("homeView").hidden = name !== "home";
+  $("waitView").hidden = name !== "wait";
   $("loading").hidden = name !== "loading";
-  $("signOutBtn").hidden = name !== "home";
+  $("signOutBtn").hidden = name !== "home" && name !== "wait";
   window.scrollTo(0, 0);
 }
 function showTab(which) {
@@ -117,7 +118,7 @@ $("setupForm").addEventListener("submit", function (e) {
 });
 $("signOutBtn").addEventListener("click", function () {
   post({ action: "logout" }).catch(function () {});   // removes the HttpOnly session cookie
-  saveToken(null); data = null;
+  saveToken(null); data = null; stopWaitTimer();
   showTab("signin");
   showView("auth");
   setMsg($("authMsg"), "You are signed out.", "ok");
@@ -128,13 +129,53 @@ function loadHome(flags) {
   showView("loading");
   return fetch(PORTAL_URL, { headers: { Authorization: "Bearer " + studentToken }, cache: "no-store" })
     .then(readJson)
-    .then(function (d) { data = d; renderHome(flags || {}); showView("home"); })
+    .then(function (d) {
+      data = d;
+      if (d.waiting) { renderWait(d); showView("wait"); return; }
+      stopWaitTimer();
+      renderHome(flags || {}); showView("home");
+    })
     .catch(function (err) {
       if (err.status === 401) { saveToken(null); showView("auth"); setMsg($("authMsg"), "Please sign in again.", "info"); return; }
       showView("auth");
       setMsg($("authMsg"), "Could not load your record: " + err.message, "bad");
     });
 }
+
+// ---------- waiting for the section's teacher ----------
+let waitTimer = null;
+function stopWaitTimer() { if (waitTimer) { clearInterval(waitTimer); waitTimer = null; } }
+function renderWait(d) {
+  const s = d.student || {}, cls = [s.grade, s.section].filter(Boolean).join(" – ");
+  const rejected = d.waiting === "rejected";
+  $("waitIcon").className = "wait-ic" + (rejected ? " bad" : "");
+  $("waitIcon").innerHTML = rejected ? ICON.info : '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  $("waitTitle").textContent = rejected ? "Your teacher could not confirm you" : "Waiting for your teacher";
+  $("waitText").textContent = rejected
+    ? "The teacher of " + cls + " said you are not in their class. If you chose the wrong grade or section, please talk to your teacher or the school dentist."
+    : "Hi " + (s.name || "") + "! Your registration in " + cls + " is saved. Your teacher must approve it before you can see your dental record.";
+  $("waitNote").textContent = rejected ? "" : (d.teacher_ready
+    ? "This page checks again by itself every minute."
+    : "Your section's teacher has not made a teacher account yet. Please remind your teacher to sign up on the Teacher page.");
+  setMsg($("waitMsg"), "");
+  if (!rejected && !waitTimer) waitTimer = setInterval(function () { if (!document.hidden && !$("waitView").hidden) loadQuiet(); }, 60000);
+  if (rejected) stopWaitTimer();
+}
+function loadQuiet() {
+  return fetch(PORTAL_URL, { headers: { Authorization: "Bearer " + studentToken }, cache: "no-store" })
+    .then(readJson)
+    .then(function (d) {
+      data = d;
+      if (d.waiting) { renderWait(d); return; }
+      stopWaitTimer(); renderHome({ approved: true }); showView("home");
+    })
+    .catch(function (err) { if (err.status === 401) { stopWaitTimer(); saveToken(null); showView("auth"); } });
+}
+$("waitRefresh").addEventListener("click", function () {
+  const btn = this; busy(btn, true, "Checking…");
+  loadQuiet().then(function () { if (!$("waitView").hidden) setMsg($("waitMsg"), "Still waiting for your teacher.", "info"); })
+    .finally(function () { busy(btn, false); });
+});
 
 function banner(kind, title, text) {
   const b = el("div", "banner " + kind);
@@ -151,7 +192,9 @@ function renderHome(flags) {
   const params = new URLSearchParams(location.search);
   // banners
   const bx = $("homeBanners"); bx.innerHTML = "";
-  if (params.get("welcome")) {
+  if (flags.approved) {
+    bx.appendChild(banner("ok", "Your teacher approved you!", "This is your dental record. After your check-up at the school dental clinic, your results will show here."));
+  } else if (params.get("welcome")) {
     bx.appendChild(banner("ok", "You're registered! This is your dental record.",
       "After your check-up at the school dental clinic, your results will show here."));
   } else if (flags.setup) {

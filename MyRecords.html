@@ -85,6 +85,12 @@
     .banner.ok { background: var(--success-soft); color: var(--success); border: 1px solid #b6e2cc; }
     .banner.warn { background: var(--warning-soft); color: var(--warning); border: 1px solid #f3d9a8; }
     .banner b { display: block; }
+    .wait { text-align: center; }
+    .wait h2 { justify-content: center; margin-top: 8px; }
+    .wait-ic { width: 64px; height: 64px; margin: 4px auto 0; border-radius: 50%; display: grid; place-items: center;
+      background: var(--warning-soft); color: var(--warning); }
+    .wait-ic.bad { background: var(--danger-soft); color: var(--danger); }
+    .wait-ic .ic { width: 30px; height: 30px; }
     .profile { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
     .avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--primary-soft); color: var(--primary);
       display: grid; place-items: center; font-weight: 700; font-size: 22px; flex-shrink: 0; }
@@ -249,7 +255,7 @@
         </form>
 
         <p class="msg" id="authMsg" role="alert"></p>
-        <p class="auth-foot">Not registered yet? <a href="StudentReg.html">Register here</a></p>
+        <p class="auth-foot">Not registered yet? <a href="StudentReg.html">Register here</a> · Teacher? <a href="Teacher.html">Teacher sign-in</a></p>
       </div>
     </section>
 
@@ -290,6 +296,20 @@
       </div>
 
       <footer>Confidential student health record. Remember to sign out on shared phones and computers.</footer>
+    </section>
+
+    <!-- ===== waiting for the teacher ===== -->
+    <section id="waitView" hidden>
+      <div class="card auth wait">
+        <div class="wait-ic" id="waitIcon" aria-hidden="true"></div>
+        <h2 id="waitTitle"></h2>
+        <p id="waitText"></p>
+        <p class="muted small" id="waitNote"></p>
+        <div class="row-end" style="justify-content:center">
+          <button type="button" class="secondary" id="waitRefresh">Check again</button>
+        </div>
+        <p class="msg" id="waitMsg" role="status"></p>
+      </div>
     </section>
 
     <div class="loading" id="loading" hidden>Loading your dental record…</div>
